@@ -892,7 +892,7 @@
                 </div>
 
                 {/* ── INICIAR SESSÃO bar ── */}
-                <div className="iniciar-sessao-bar" onClick={() => setModal('sessao')}>
+                <div className="iniciar-sessao-bar" onClick={() => openSession?.({ day: todayDay, weekIdx: WEEK_IDX })}>
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 2L10 6L3 10V2Z" fill="#fff"/></svg>
                     <span className="iniciar-sessao-txt">Iniciar Sessão</span>
                 </div>
@@ -2608,11 +2608,13 @@
         const [tab,          setTab]          = useState('hoje');
         const [modal,        setModal]        = useState(null);
 
-        const closeModal = () => setModal(null);
+        const [sessionData, setSessionData] = useState(null);
+        const openSession = (data) => { setSessionData(data); setModal('sessao'); };
+        const closeModal  = () => { setModal(null); };
 
         if (!onboarded) return <TelaOnboarding onComplete={() => setOnboarded(true)}/>;
 
-        if (modal === 'sessao')      return <TelaSessionAtiva onClose={closeModal}/>;
+        if (modal === 'sessao')      return <TelaSessionAtiva session={sessionData} onClose={closeModal}/>;
         if (modal === 'weDontStop')  return <TelaWeDonotStop  onClose={closeModal}/>;
         if (modal === 'modoRegata')  return <TelaModuRegata   onClose={closeModal}/>;
         if (modal === 'conexoes')    return <TelaConexoes     onBack={closeModal}/>;
@@ -2626,7 +2628,7 @@
 
         const renderTab = () => {
             switch (tab) {
-                case 'hoje':      return <TelaHoje      setModal={setModal} sailingMode={sailingMode}/>;
+                case 'hoje':      return <TelaHoje      setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
                 case 'plano':     return <TelaPlano/>;
                 case 'testes':    return <TelaTestes/>;
                 case 'biblioteca':return <TelaBiblioteca/>;
