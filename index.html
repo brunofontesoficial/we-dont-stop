@@ -748,7 +748,7 @@
     /* ── end helpers ── */
 
     function TelaHoje({ setModal, sailingMode, openSession }) {
-        const WEEK_IDX = 1;
+        const WEEK_IDX = 1; // hardcoded — derive from user progress state in future
         const todayDay = PLAN_WEEKS[WEEK_IDX - 1].days[TODAY_IDX];
         const isRest   = todayDay.type === 'descanso';
         const sess     = getSessionState();
@@ -863,7 +863,7 @@
                             <div className="card-sub" style={{color:'#3db87a',marginTop:4}}>Concluído · {totalMin}min ✓</div>
                         </div>
                     ) : sessStatus === 'active' ? (
-                        <div className="card card-sessao" style={{border:'1.5px solid rgba(240,197,46,0.35)',cursor:'pointer'}} onClick={() => openSession({ day: todayDay, weekIdx: WEEK_IDX })}>
+                        <div className="card card-sessao" style={{border:'1.5px solid rgba(240,197,46,0.35)',cursor:'pointer'}} onClick={() => openSession?.({ day: todayDay, weekIdx: WEEK_IDX })}>
                             <div className="sessao-top">
                                 <div style={{display:'flex',alignItems:'center',gap:5}}>
                                     <div style={{width:5,height:5,borderRadius:'50%',background:'#f0c52e'}}/>
@@ -875,7 +875,7 @@
                             <div style={{marginTop:10,background:'#f0c52e',color:'#18191f',borderRadius:20,padding:'7px 14px',fontSize:10,fontWeight:700,display:'inline-block'}}>CONTINUAR →</div>
                         </div>
                     ) : (
-                        <div className="card card-sessao" style={{cursor:'pointer'}} onClick={() => openSession({ day: todayDay, weekIdx: WEEK_IDX })}>
+                        <div className="card card-sessao" style={{cursor:'pointer'}} onClick={() => openSession?.({ day: todayDay, weekIdx: WEEK_IDX })}>
                             <div className="sessao-top">
                                 <div className="overline" style={{color:'rgba(245,240,232,0.45)'}}>SESSÃO · HOJE</div>
                                 <div className="badge-hoje">HOJE</div>
