@@ -747,7 +747,24 @@
     }
     /* ── end helpers ── */
 
-    function TelaHoje({ setModal, sailingMode }) {
+    function TelaHoje({ setModal, sailingMode, openSession }) {
+        const WEEK_IDX = 1;
+        const todayDay = PLAN_WEEKS[WEEK_IDX - 1].days[TODAY_IDX];
+        const isRest   = todayDay.type === 'descanso';
+        const sess     = getSessionState();
+        const sessStatus = isRest ? 'rest'
+                         : sess && sess.completed ? 'done'
+                         : sess ? 'active'
+                         : 'idle';
+        const totalExCount = !isRest
+            ? (SESSION_TEMPLATES[todayDay.type] || []).reduce((a, s) => a + s.items.length, 0)
+            : 0;
+        const doneCount = sess ? (sess.doneIds || []).length : 0;
+        const elapsedMin = sess && sess.startedAt
+            ? Math.floor((Date.now() - sess.startedAt) / 60000)
+            : 0;
+        const totalMs = sess && sess.totalMs ? sess.totalMs : 0;
+        const totalMin = Math.floor(totalMs / 60000);
         return (
             <div>
                 <div className="hoje-header">
@@ -828,24 +845,50 @@
                         <StreakDots total={22}/>
                     </div>
 
-                    <div className="card card-sessao" onClick={() => setModal('sessao')}>
-                        <div className="sessao-top">
-                            <div className="overline" style={{color:'rgba(245,240,232,0.45)'}}>SESSÃO · SEG 21 ABR</div>
-                            <div className="badge-hoje">HOJE</div>
-                        </div>
-                        <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
-                            <div>
-                                <div className="sessao-title">Força &amp; Core</div>
-                                <div className="card-sub" style={{color:'rgba(245,240,232,0.5)',marginTop:4}}>Bloco B · Semana 3 · Hike endurance</div>
+                    {isRest ? (
+                        <div className="card card-sessao" style={{opacity:0.5, cursor:'default'}}>
+                            <div className="sessao-top">
+                                <div className="overline" style={{color:'rgba(245,240,232,0.45)'}}>SESSÃO · {new Date().toLocaleDateString('pt-BR',{weekday:'short'}).toUpperCase()} {new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}).toUpperCase()}</div>
                             </div>
-                            <div style={{opacity:0.35,flexShrink:0,marginLeft:8}}>
-                                <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
-                                    <path d="M26 6L26 42L8 42Z" fill="rgba(245,240,232,0.88)"/>
-                                    <path d="M26 6L26 34L42 34Z" fill="rgba(245,240,232,0.35)"/>
-                                </svg>
-                            </div>
+                            <div className="sessao-title" style={{opacity:0.45}}>Dia de descanso</div>
+                            <div className="card-sub" style={{color:'rgba(245,240,232,0.35)',marginTop:4}}>Recuperação ativa · mobilidade leve</div>
                         </div>
-                    </div>
+                    ) : sessStatus === 'done' ? (
+                        <div className="card card-sessao" style={{border:'1.5px solid rgba(61,184,122,0.25)'}}>
+                            <div className="sessao-top">
+                                <div className="overline" style={{color:'rgba(245,240,232,0.45)'}}>SESSÃO · HOJE</div>
+                                <div className="badge-hoje" style={{background:'rgba(61,184,122,0.18)',color:'#3db87a'}}>✓ FEITO</div>
+                            </div>
+                            <div className="sessao-title" style={{textDecoration:'line-through',opacity:0.45}}>{todayDay.name}</div>
+                            <div className="card-sub" style={{color:'#3db87a',marginTop:4}}>Concluído · {totalMin}min ✓</div>
+                        </div>
+                    ) : sessStatus === 'active' ? (
+                        <div className="card card-sessao" style={{border:'1.5px solid rgba(240,197,46,0.35)',cursor:'pointer'}} onClick={() => openSession({ day: todayDay, weekIdx: WEEK_IDX })}>
+                            <div className="sessao-top">
+                                <div style={{display:'flex',alignItems:'center',gap:5}}>
+                                    <div style={{width:5,height:5,borderRadius:'50%',background:'#f0c52e'}}/>
+                                    <div className="overline" style={{color:'#b49218'}}>EM ANDAMENTO · {elapsedMin}min</div>
+                                </div>
+                            </div>
+                            <div className="sessao-title">{todayDay.name}</div>
+                            <div className="card-sub" style={{color:'rgba(245,240,232,0.5)',marginTop:4}}>Exercício {doneCount} de {totalExCount} · toque pra continuar</div>
+                            <div style={{marginTop:10,background:'#f0c52e',color:'#18191f',borderRadius:20,padding:'7px 14px',fontSize:10,fontWeight:700,display:'inline-block'}}>CONTINUAR →</div>
+                        </div>
+                    ) : (
+                        <div className="card card-sessao" style={{cursor:'pointer'}} onClick={() => openSession({ day: todayDay, weekIdx: WEEK_IDX })}>
+                            <div className="sessao-top">
+                                <div className="overline" style={{color:'rgba(245,240,232,0.45)'}}>SESSÃO · HOJE</div>
+                                <div className="badge-hoje">HOJE</div>
+                            </div>
+                            <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+                                <div>
+                                    <div className="sessao-title">{todayDay.name}</div>
+                                    <div className="card-sub" style={{color:'rgba(245,240,232,0.5)',marginTop:4}}>{todayDay.type?.toUpperCase()} · {todayDay.dur} · {totalExCount} exercícios</div>
+                                </div>
+                            </div>
+                            <div style={{marginTop:10,background:'#18191f',color:'#f5f0e8',borderRadius:20,padding:'7px 14px',fontSize:10,fontWeight:700,display:'inline-block'}}>INICIAR SESSÃO →</div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── INICIAR SESSÃO bar ── */}
