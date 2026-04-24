@@ -2634,7 +2634,7 @@
                 case 'biblioteca':return <TelaBiblioteca/>;
                 case 'pulso':     return <TelaPulso/>;
                 case 'perfil':    return <TelaPerfil    setModal={setModal} sailingMode={sailingMode} setSailingMode={toggleSailing}/>;
-                default:          return <TelaHoje      setModal={setModal} sailingMode={sailingMode}/>;
+                default:          return <TelaHoje      setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
             }
         };
 
