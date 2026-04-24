@@ -1431,26 +1431,28 @@
         }, [session]);
 
         const today = new Date().toLocaleDateString('sv');
-        const initialState = getSessionState();
-        const initialDoneIds = (initialState && !initialState.completed)
-            ? (initialState.doneIds || []) : [];
-        const initialStartedAt = (initialState && initialState.startedAt)
-            ? initialState.startedAt : Date.now();
 
-        const [doneIds, setDoneIds]       = React.useState(initialDoneIds);
-        const [elapsed, setElapsed]       = React.useState(
-            initialState && initialState.startedAt
-                ? Math.floor((Date.now() - initialState.startedAt) / 1000) : 0
-        );
+        const [doneIds, setDoneIds] = React.useState(() => {
+            const s = getSessionState();
+            return (s && !s.completed) ? (s.doneIds || []) : [];
+        });
+        const [elapsed, setElapsed] = React.useState(() => {
+            const s = getSessionState();
+            return (s && s.startedAt) ? Math.floor((Date.now() - s.startedAt) / 1000) : 0;
+        });
         const timerRef = React.useRef(null);
-        const startedAtRef = React.useRef(initialStartedAt);
+        const startedAtRef = React.useRef(null);
+        if (startedAtRef.current === null) {
+            const s = getSessionState();
+            startedAtRef.current = (s && s.startedAt) ? s.startedAt : Date.now();
+        }
 
         React.useEffect(() => {
             saveSessionState({
                 date:      today,
                 weekIdx:   session ? session.weekIdx : 1,
                 dayType:   session ? session.day.type : '',
-                doneIds:   initialDoneIds,
+                doneIds:   doneIds,
                 startedAt: startedAtRef.current,
                 completed: false,
             });
@@ -1480,11 +1482,11 @@
         function encerrarSessao() {
             clearInterval(timerRef.current);
             const totalMs = Date.now() - startedAtRef.current;
-            saveSessionState({ completed: true, totalMs });
+            saveSessionState({ completed: true, totalMs, doneIds });
             onClose();
         }
 
-        const allDone = allExercises.length > 0 && doneIds.length >= allExercises.length;
+        const allDone = allExercises.length === 0 || doneIds.length >= allExercises.length;
 
         const sections = session ? (SESSION_TEMPLATES[session.day.type] || []) : [];
 
