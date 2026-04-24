@@ -731,14 +731,16 @@
         try {
             const s = JSON.parse(localStorage.getItem('regata_session') || 'null');
             if (!s) return null;
-            const today = new Date().toISOString().slice(0, 10);
+            const today = new Date().toLocaleDateString('sv');
             if (s.date !== today) { clearSessionState(); return null; }
             return s;
         } catch { return null; }
     }
     function saveSessionState(patch) {
-        const cur = JSON.parse(localStorage.getItem('regata_session') || 'null') || {};
-        localStorage.setItem('regata_session', JSON.stringify({ ...cur, ...patch }));
+        try {
+            const cur = JSON.parse(localStorage.getItem('regata_session') || 'null') || {};
+            localStorage.setItem('regata_session', JSON.stringify({ ...cur, ...patch }));
+        } catch { /* storage unavailable — ignore silently */ }
     }
     function clearSessionState() {
         localStorage.removeItem('regata_session');
