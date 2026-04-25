@@ -869,6 +869,12 @@
         const totalMin = Math.floor(totalMs / 60000);
         const profile = getProfile();
         const raceDaysLeft = getRaceDaysLeft(profile.raceDate);
+        const aval = getAvaliacao();
+        const avalLevelNames = ['Iniciante','Intermediário','Avançado','Elite','World Class'];
+        const avalLevel = aval ? (aval.hikingSecs>=240?5:aval.hikingSecs>=180?4:aval.hikingSecs>=120?3:aval.hikingSecs>=60?2:1) : 0;
+        const avalLevelName = avalLevel ? avalLevelNames[avalLevel-1] : null;
+        const avalDaysAgo = aval ? Math.floor((Date.now()-new Date(aval.date+'T00:00:00').getTime())/86400000) : null;
+        const avalWeeksLeft = aval ? Math.max(0, 8 - Math.floor(avalDaysAgo/7)) : null;
         return (
             <div>
                 <div className="hoje-header">
@@ -908,11 +914,23 @@
                                 <path d="M3 19h16" stroke="#18191f" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
                             </svg>
                         </div>
-                        <div className="readiness-body">
-                            <div className="card-label">AVALIAÇÃO INICIAL</div>
-                            <div className="card-title-serif">Descubra seu nível em 15 min</div>
-                            <div className="card-sub">Hiking Bench · Core · Endurance · Mobilidade</div>
-                        </div>
+                        {aval ? (
+                            <div className="readiness-body">
+                                <div className="card-label">SEU NÍVEL · AVALIAÇÃO</div>
+                                <div className="card-title-serif">{avalLevelName}</div>
+                                <div className="card-sub">
+                                    {avalWeeksLeft > 0
+                                        ? `Nível ${avalLevel}/5 · hiking ${aval.hikingSecs}s · refazer em ${avalWeeksLeft} sem.`
+                                        : `Nível ${avalLevel}/5 · hiking ${aval.hikingSecs}s · hora de refazer!`}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="readiness-body">
+                                <div className="card-label">AVALIAÇÃO INICIAL</div>
+                                <div className="card-title-serif">Descubra seu nível em 15 min</div>
+                                <div className="card-sub">Hiking Bench · Core · Endurance · Mobilidade</div>
+                            </div>
+                        )}
                         <div className="chevron">›</div>
                     </div>
 
@@ -1011,15 +1029,13 @@
                     </div>
                 </div>
                 <div className="pilares-scroll">
-                    {(() => {
-                        const aval = getAvaliacao();
-                        return [
+                    {[
                         { name:'Força',     num: aval ? aval.scores.hiking     : '—', color:'var(--card-navy)', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 9h14M5 6v6M13 6v6M5 9h1M13 9h-1" stroke="#1c2440" strokeWidth="1.5" strokeLinecap="round"/></svg> },
                         { name:'Endurance', num: aval ? aval.scores.endurance  : '—', color:'#c84b38', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3C6.24 3 4 5.24 4 8c0 4 5 8 5 8s5-4 5-8c0-2.76-2.24-5-5-5z" stroke="#c84b38" strokeWidth="1.5"/><circle cx="9" cy="8" r="2" stroke="#c84b38" strokeWidth="1.5"/></svg> },
                         { name:'Core',      num: aval ? aval.scores.core       : '—', color:'#e87a45', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2v14M5 5l4 4 4-4M5 13l4-4 4 4" stroke="#e87a45" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
                         { name:'Mobilidade',num: aval ? aval.scores.mobilidade : '—', color:'#9b7dd4', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="5" r="2" stroke="#9b7dd4" strokeWidth="1.5"/><path d="M5 9c0 0 1.5-2 4-2s4 2 4 2v5H5V9z" stroke="#9b7dd4" strokeWidth="1.5" strokeLinejoin="round"/></svg> },
                         { name:'Mental',    num: 77,                                   color:'#3db87a', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9C3 5.69 5.69 3 9 3s6 2.69 6 6c0 2-1 3.5-2.5 4.5L12 15H6l-.5-1.5C4 12.5 3 11 3 9z" stroke="#3db87a" strokeWidth="1.5"/><path d="M7 9h4M9 7v4" stroke="#3db87a" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-                    ];})().map((p,i) => (
+                    ].map((p,i) => (
                         <div key={i} className="pilar-card">
                             {p.icon}
                             <div className="pilar-num">{p.num}</div>
