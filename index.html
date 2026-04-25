@@ -775,18 +775,30 @@
             localStorage.setItem('regata_profile', JSON.stringify({ ...cur, ...patch }));
         } catch { /* storage unavailable */ }
     }
+    function getCardioMode() {
+        try { return localStorage.getItem('regata_cardio_mode') || 'corrida'; } catch { return 'corrida'; }
+    }
+    function saveCardioMode(mode) {
+        try { localStorage.setItem('regata_cardio_mode', mode); } catch {}
+    }
     function saveAvaliacao(data) {
         try {
-            localStorage.setItem('regata_avaliacao', JSON.stringify({
-                ...data,
-                date: new Date().toLocaleDateString('sv'),
-            }));
+            const entry = { ...data, date: new Date().toLocaleDateString('sv') };
+            localStorage.setItem('regata_avaliacao', JSON.stringify(entry));
+            const hist = getAvaliacaoHistory();
+            const updated = [...hist.filter(e => e.date !== entry.date), entry].slice(-8);
+            localStorage.setItem('regata_avaliacao_history', JSON.stringify(updated));
         } catch { /* storage unavailable */ }
     }
     function getAvaliacao() {
         try {
             return JSON.parse(localStorage.getItem('regata_avaliacao') || 'null');
         } catch { return null; }
+    }
+    function getAvaliacaoHistory() {
+        try {
+            return JSON.parse(localStorage.getItem('regata_avaliacao_history') || '[]');
+        } catch { return []; }
     }
     function getRaceDaysLeft(raceDate) {
         const race = new Date(raceDate + 'T00:00:00');
@@ -933,6 +945,35 @@
                         )}
                         <div className="chevron">›</div>
                     </div>
+
+                    {aval && aval.scores && (() => {
+                        const pillars = [
+                            {k:'hiking',     l:'Hiking',     c:'#e87a45'},
+                            {k:'core',       l:'Core',       c:'#9b7dd4'},
+                            {k:'forca',      l:'Força',      c:'#c84b38'},
+                            {k:'endurance',  l:'Endurance',  c:'#2d6b4f'},
+                            {k:'mobilidade', l:'Mobilidade', c:'#4a8fd9'},
+                        ];
+                        return (
+                            <div className="card" style={{padding:'16px 18px', background:'#fff'}} onClick={() => setModal('avaliacao')}>
+                                <div style={{width:'100%'}}>
+                                    <div className="card-label" style={{marginBottom:12}}>PILARES · PERFORMANCE</div>
+                                    {pillars.map(p => {
+                                        const score = aval.scores[p.k] ?? 0;
+                                        return (
+                                            <div key={p.k} style={{display:'flex', alignItems:'center', gap:10, marginBottom:8}}>
+                                                <div style={{width:72, fontSize:10, fontWeight:600, color:'rgba(24,25,31,0.5)', letterSpacing:'0.4px', textTransform:'uppercase', flexShrink:0}}>{p.l}</div>
+                                                <div style={{flex:1, height:5, borderRadius:3, background:'rgba(24,25,31,0.07)', overflow:'hidden'}}>
+                                                    <div style={{height:'100%', width:`${score}%`, borderRadius:3, background:p.c, transition:'width 0.4s'}}/>
+                                                </div>
+                                                <div style={{width:26, fontSize:11, fontWeight:700, color:'var(--text-dark)', textAlign:'right', flexShrink:0}}>{score}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {sailingMode && <div className="card card-regata" onClick={() => setModal('modoRegata')}>
                         <div className="icon-box icon-box-coral"><SailIcon/></div>
@@ -1149,7 +1190,7 @@
         );
     }
 
-    function TelaTestes() {
+    function TelaTestes({ setModal }) {
         const aval    = getAvaliacao();
         const profile = getProfile();
         const hikingSecs  = aval ? aval.hikingSecs  : 112;
@@ -1160,16 +1201,22 @@
         const levelPct    = [0.2,0.4,0.67,0.82,1][hikingLevel-1];
         function levelTag(s) { return s>=80?{level:'ELITE',tag:'tag-avancado'}:s>=65?{level:'AVANÇADO',tag:'tag-avancado'}:s>=50?{level:'SÓLIDO',tag:'tag-solido'}:s>=35?{level:'FORTE',tag:'tag-forte'}:{level:'BOM',tag:'tag-bom'}; }
         const endUser = aval ? { type: aval.endType, val: aval.endDist } : null;
+        const pushSaved  = aval && aval.pushReps  != null ? aval.pushReps  : null;
+        const pullSaved  = aval && aval.pullReps  != null ? aval.pullReps  : null;
+        const squatSaved = aval && aval.squatReps != null ? aval.squatReps : null;
+        const pushScore  = pushSaved  != null ? Math.min(100, Math.round(pushSaved/50*100))  : 50;
+        const pullScore  = pullSaved  != null ? Math.min(100, Math.round(pullSaved/18*100))  : 50;
+        const squatScore = squatSaved != null ? Math.min(100, Math.round(squatSaved/55*100)) : 50;
         const CORE = [
-            { name:'Hiking Bench', desc:'Isometria postural · s', score:hikingSecs, unit:'s', ...levelTag(aval?aval.scores.hiking:70), barPct:Math.min(1,hikingSecs/240), icon:'timer',  bg:'rgba(240,197,46,0.14)',  ic:'#b49218' },
-            { name:'Plank Frontal', desc:'Core · s',              score:plankSecs,  unit:'s', ...levelTag(aval?aval.scores.core:65),   barPct:Math.min(1,plankSecs/120),  icon:'plank',  bg:'rgba(240,197,46,0.14)',  ic:'#b49218' },
-            { name:'Dead Hang',     desc:'Força relativa · s',    score:74,  unit:'s', level:'SÓLIDO',   tag:'tag-solido',   barPct:0.78, icon:'hang',   bg:'rgba(155,125,212,0.14)', ic:'#9b7dd4' },
-            { name:'Push-up Max',   desc:'Empurrar · reps',       score:34,  unit:'reps', level:'FORTE', tag:'tag-forte',    barPct:0.65, icon:'pushup', bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
-            { name:'Pull-up Max',   desc:'Puxar · reps',          score:9,   unit:'reps', level:'FORTE', tag:'tag-forte',    barPct:0.65, icon:'pullup', bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
-            { name:'Sit-up 2min',   desc:'Abdômen · reps',        score:52,  unit:'reps', level:'FORTE', tag:'tag-forte',    barPct:0.65, icon:'situp',  bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
+            { name:'Hiking Bench', desc:'Isometria postural · s', score:hikingSecs,           unit:'s',    ...levelTag(aval?aval.scores.hiking:70),  barPct:Math.min(1,hikingSecs/240),           icon:'timer',  bg:'rgba(240,197,46,0.14)',  ic:'#b49218' },
+            { name:'Plank Frontal', desc:'Core · s',              score:plankSecs,            unit:'s',    ...levelTag(aval?aval.scores.core:65),    barPct:Math.min(1,plankSecs/180),            icon:'plank',  bg:'rgba(240,197,46,0.14)',  ic:'#b49218' },
+            { name:'Dead Hang',     desc:'Força relativa · s',    score:74,                   unit:'s',    level:'SÓLIDO', tag:'tag-solido',          barPct:0.78,                                 icon:'hang',   bg:'rgba(155,125,212,0.14)', ic:'#9b7dd4' },
+            { name:'Push-up Max',   desc:'Empurrar · reps',       score:pushSaved  ?? '–',    unit:'reps', ...levelTag(pushScore),                   barPct:Math.min(1,pushScore/100),            icon:'pushup', bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
+            { name:'Pull-up Max',   desc:'Puxar · reps',          score:pullSaved  ?? '–',    unit:'reps', ...levelTag(pullScore),                   barPct:Math.min(1,pullScore/100),            icon:'pullup', bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
+            { name:'Agachamento',   desc:'Pernas · reps',         score:squatSaved ?? '–',    unit:'reps', ...levelTag(squatScore),                  barPct:Math.min(1,squatScore/100),           icon:'situp',  bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
         ];
         const ENDURANCE = [
-            { name:'Cooper 12min', desc:'VO₂ · corrida',       score: endUser?.type==='cooper'  ? endUser.val : 2600,  unit:'m',    ...(endUser?.type==='cooper'  ? levelTag(aval.scores.endurance) : {level:'BOM',   tag:'tag-bom'}),    barPct: endUser?.type==='cooper'  ? Math.min(1,(parseFloat(endUser.val)||0)/3200) : 0.52, icon:'running', bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
+            { name:'Cooper 12min', desc:'VO₂ · corrida',       score: endUser?.type==='cooper'  ? endUser.val : 2600,  unit:'m',    ...(endUser?.type==='cooper'  ? levelTag(aval.scores.endurance) : {level:'BOM',   tag:'tag-bom'}),    barPct: endUser?.type==='cooper'  ? Math.min(1,(parseFloat(endUser.val)||0)/2800) : 0.52, icon:'running', bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
             { name:'2km Remo',     desc:'VO₂ · remo',          score: endUser?.type==='remo'    ? endUser.val : '7:32', unit:'min',  ...(endUser?.type==='remo'    ? levelTag(aval.scores.endurance) : {level:'FORTE', tag:'tag-forte'}),  barPct: 0.65, icon:'rowing',  bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
             { name:'FTP Bike',     desc:'Potência · ciclismo', score: endUser?.type==='bike'    ? endUser.val : '3.8',  unit:'w/kg', ...(endUser?.type==='bike'    ? levelTag(aval.scores.endurance) : {level:'SÓLIDO',tag:'tag-solido'}), barPct: 0.78, icon:'bike',    bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
             { name:'100 Burpees',  desc:'Condicionamento',     score: endUser?.type==='burpees' ? endUser.val : '8:45', unit:'min',  ...(endUser?.type==='burpees' ? levelTag(aval.scores.endurance) : {level:'BOM',   tag:'tag-bom'}),    barPct: 0.52, icon:'burpee',  bg:'rgba(232,122,69,0.14)', ic:'#e87a45' },
@@ -1220,12 +1267,61 @@
                             <div className="battery-ol">BATERIA COMPLETA</div>
                             <div className="battery-count">7 <span>testes</span></div>
                         </div>
-                        <button className="btn-refazer">+ REFAZER</button>
+                        <button className="btn-refazer" onClick={() => setModal('avaliacao')}>+ REFAZER</button>
                     </div>
                     <div className="test-section-lbl">FORÇA · POSTURA · CORE</div>
                     {CORE.map((t,i) => <TestItem key={i} t={t}/>)}
                     <div className="test-section-lbl" style={{marginTop:18}}>ENDURANCE · ESCOLHA 1 PROTOCOLO</div>
                     {ENDURANCE.map((t,i) => <TestItem key={i} t={t}/>)}
+                    {(() => {
+                        const hist = getAvaliacaoHistory();
+                        if (hist.length < 2) return null;
+                        const pillars = [
+                            {k:'hiking',    l:'Hiking',    c:'#e87a45'},
+                            {k:'core',      l:'Core',      c:'#9b7dd4'},
+                            {k:'forca',     l:'Força',     c:'#c84b38'},
+                            {k:'endurance', l:'Endurance', c:'#2d6b4f'},
+                            {k:'mobilidade',l:'Mobilidade',c:'#4a8fd9'},
+                        ];
+                        const W = 260, H = 72, pad = 8;
+                        const xs = hist.map((_,i) => pad + i*(W-2*pad)/(hist.length-1));
+                        function PillarChart({p}) {
+                            const vals = hist.map(e => e.scores ? (e.scores[p.k] ?? 0) : 0);
+                            const pts = vals.map((v,i) => `${xs[i]},${H - pad - (v/100)*(H-2*pad)}`).join(' ');
+                            const last = vals[vals.length-1];
+                            const prev = vals[vals.length-2];
+                            const delta = last - prev;
+                            return (
+                                <div style={{marginBottom:18}}>
+                                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:4}}>
+                                        <div style={{fontSize:10, fontWeight:700, letterSpacing:'0.8px', textTransform:'uppercase', color:'rgba(24,25,31,0.5)'}}>{p.l}</div>
+                                        <div style={{display:'flex', alignItems:'baseline', gap:6}}>
+                                            <div style={{fontSize:18, fontWeight:700, fontFamily:'var(--font-display)', color:'var(--text-dark)'}}>{last}</div>
+                                            <div style={{fontSize:10, fontWeight:700, color: delta>=0 ? '#3db87a' : '#c84b38'}}>{delta>=0?'+':''}{delta}</div>
+                                        </div>
+                                    </div>
+                                    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:'block'}}>
+                                        <polyline points={pts} fill="none" stroke={p.c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        {vals.map((v,i) => (
+                                            <circle key={i} cx={xs[i]} cy={H - pad - (v/100)*(H-2*pad)} r={i===vals.length-1?4:2.5} fill={p.c}/>
+                                        ))}
+                                    </svg>
+                                    <div style={{display:'flex', justifyContent:'space-between', marginTop:2}}>
+                                        {hist.map((e,i) => {
+                                            const d = new Date(e.date+'T00:00:00');
+                                            return <div key={i} style={{fontSize:8, color:'rgba(24,25,31,0.35)', letterSpacing:'0.3px'}}>{d.getDate()}/{d.getMonth()+1}</div>;
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return (
+                            <div style={{marginTop:28, paddingTop:20, borderTop:'1px solid rgba(24,25,31,0.08)'}}>
+                                <div className="test-section-lbl" style={{marginBottom:16}}>EVOLUÇÃO · PILARES</div>
+                                {pillars.map(p => <PillarChart key={p.k} p={p}/>)}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         );
@@ -1553,7 +1649,7 @@
         // Flatten exercises: [{ id, section, color, name, detail, rest }]
         const allExercises = React.useMemo(() => {
             if (!session) return [];
-            const sections = SESSION_TEMPLATES[session.day.type] || [];
+            const sections = getSessionSections(session.day.type, getAvaliacao(), getCardioMode());
             return sections.flatMap((sec, si) =>
                 sec.items.map((item, ii) => ({
                     id:      `s${si}-i${ii}`,
@@ -2117,7 +2213,7 @@
 
     /* ══════════════════════ AVALIAÇÃO ══════════════════════ */
     function TelaAvaliacao({ onClose }) {
-        const TOTAL = 7;
+        const TOTAL = 8;
         const [step, setStep] = useState(1);
 
         // Step 1: Quem é você
@@ -2137,14 +2233,19 @@
         const [hikingVal, setHikingVal] = useState(0);
         const hikingRef = useRef(null);
 
-        // Step 4: Core EMOM
+        // Step 4: Core
         const [plankSecs, setPlankSecs] = useState(95);
         const [plankOn, setPlankOn] = useState(false);
         const [plankVal, setPlankVal] = useState(0);
         const plankRef = useRef(null);
         const [emomRounds, setEmomRounds] = useState(null);
 
-        // Step 5: Endurance
+        // Step 5: Força
+        const [pushReps,   setPushReps]   = useState(null);
+        const [pullReps,   setPullReps]   = useState(null);
+        const [squatReps,  setSquatReps]  = useState(null);
+
+        // Step 6: Endurance
         const [endType, setEndType] = useState('cooper');
         const [endDist, setEndDist] = useState('2600');
         const [rpe, setRpe] = useState(7);
@@ -2186,25 +2287,30 @@
 
         const scores = useMemo(() => {
             const hiking    = Math.min(100, Math.round(hikingSecs/240*100));
-            const core      = Math.min(100, Math.round(plankSecs / 120 * 100));
+            const core      = Math.min(100, Math.round(plankSecs/180*100));
             let endurance = 0;
             const ev = parseFloat(endDist)||0;
-            if (endType==='cooper')  endurance = Math.min(100, Math.round(ev/3200*100));
-            else if (endType==='remo')    { const s=parseMmSs(endDist); endurance = s>0 ? Math.min(100,Math.round(480/s*100)) : 0; }
-            else if (endType==='bike')    endurance = Math.min(100, Math.round(ev/500*100));
-            else if (endType==='burpees') { const s=parseMmSs(endDist); endurance = s>0 ? Math.min(100,Math.round(900/s*100)) : 0; }
+            if (endType==='cooper')  endurance = Math.min(100, Math.round(ev/2800*100));
+            else if (endType==='remo')    { const s=parseMmSs(endDist); endurance = s>0 ? Math.min(100,Math.round(420/s*100)) : 0; }
+            else if (endType==='bike')    endurance = Math.min(100, Math.round(ev/5*100));
+            else if (endType==='burpees') { const s=parseMmSs(endDist); endurance = s>0 ? Math.min(100,Math.round(600/s*100)) : 0; }
             const mobVals = Object.values(mobScores).filter(v=>v!=null);
             const mobilidade = mobVals.length ? Math.min(100, Math.round(mobVals.reduce((a,b)=>a+b,0)/mobVals.length/5*100)) : 0;
-            return { hiking, core, endurance, mobilidade };
-        }, [hikingSecs, emomRounds, endType, endDist, mobScores]);
+            const pushScore  = pushReps  != null ? Math.min(100, Math.round(pushReps/50*100))  : 0;
+            const pullScore  = pullReps  != null ? Math.min(100, Math.round(pullReps/18*100))  : 0;
+            const squatScore = squatReps != null ? Math.min(100, Math.round(squatReps/55*100)) : 0;
+            const forca = Math.round((pushScore + pullScore + squatScore) / 3);
+            return { hiking, core, forca, endurance, mobilidade };
+        }, [hikingSecs, plankSecs, endType, endDist, mobScores, pushReps, pullReps, squatReps]);
 
         const canNext = () => {
             if (step===1) return classe!==null && categoria!==null;
             if (step===2) return objetivo!==null;
             if (step===3) return hikingSecs>0;
             if (step===4) return plankSecs > 0;
-            if (step===5) return endDist.trim()!=='';
-            if (step===6) return Object.values(mobScores).every(v=>v!==null);
+            if (step===5) return pushReps !== null && pullReps !== null && squatReps !== null;
+            if (step===6) return endDist.trim()!=='';
+            if (step===7) return Object.values(mobScores).every(v=>v!==null);
             return true;
         };
 
@@ -2333,7 +2439,7 @@
 
         function renderCore() {
             const secs = plankOn ? plankVal : plankSecs;
-            const lvl = secs>=120?'World Class':secs>=90?'Elite':secs>=60?'Avançado':secs>=30?'Intermediário':'Iniciante';
+            const lvl = secs>=180?'World Class':secs>=120?'Elite':secs>=90?'Avançado':secs>=60?'Intermediário':'Iniciante';
             return (<>
                 <div className="aval-step-tag">TESTE 2 · CORE</div>
                 <div className="aval-title">Plank Frontal</div>
@@ -2365,11 +2471,94 @@
             </>);
         }
 
+        function renderForca() {
+            const stepperTests = [
+                {
+                    label:'FLEXÃO (PUSH-UP)', desc:'Máximo de repetições contínuas · sem pausa',
+                    state:pushReps, set:setPushReps, max:100,
+                    levels:[
+                        {name:'Iniciante',     range:'< 15',    min:0,  max:14,  color:'#e87a45'},
+                        {name:'Intermediário', range:'15 – 24', min:15, max:24,  color:'#f0c52e'},
+                        {name:'Avançado',      range:'25 – 34', min:25, max:34,  color:'#4a8fd9'},
+                        {name:'Elite',         range:'35 – 49', min:35, max:49,  color:'#3db87a'},
+                        {name:'World Class',   range:'≥ 50',    min:50, max:999, color:'#9b7dd4'},
+                    ],
+                },
+                {
+                    label:'BARRA (PULL-UP)', desc:'Máximo de repetições · pegada pronada',
+                    state:pullReps, set:setPullReps, max:40,
+                    levels:[
+                        {name:'Iniciante',     range:'< 3',     min:0,  max:2,   color:'#e87a45'},
+                        {name:'Intermediário', range:'3 – 6',   min:3,  max:6,   color:'#f0c52e'},
+                        {name:'Avançado',      range:'7 – 11',  min:7,  max:11,  color:'#4a8fd9'},
+                        {name:'Elite',         range:'12 – 17', min:12, max:17,  color:'#3db87a'},
+                        {name:'World Class',   range:'≥ 18',    min:18, max:999, color:'#9b7dd4'},
+                    ],
+                },
+                {
+                    label:'SQUAT JUMP — 1 MIN', desc:'Cronometre 1 minuto · salto completo · registre as repetições',
+                    state:squatReps, set:setSquatReps, max:120,
+                    levels:[
+                        {name:'Iniciante',     range:'< 25',    min:0,  max:24,  color:'#e87a45'},
+                        {name:'Intermediário', range:'25 – 34', min:25, max:34,  color:'#f0c52e'},
+                        {name:'Avançado',      range:'35 – 44', min:35, max:44,  color:'#4a8fd9'},
+                        {name:'Elite',         range:'45 – 54', min:45, max:54,  color:'#3db87a'},
+                        {name:'World Class',   range:'≥ 55',    min:55, max:999, color:'#9b7dd4'},
+                    ],
+                },
+            ];
+            return (<>
+                <div className="aval-step-tag">TESTE 3 · FORÇA</div>
+                <div className="aval-title">Força funcional</div>
+                <div className="aval-desc">Registre o máximo de repetições em cada exercício. Descanse 3 min entre eles.</div>
+                {stepperTests.map(t => {
+                    const val = t.state;
+                    const currentLevel = val != null ? t.levels.find(l => val >= l.min && val <= l.max) : null;
+                    return (
+                        <div key={t.label} style={{marginBottom:28}}>
+                            <div className="aval-label">{t.label}</div>
+                            <div style={{fontSize:11, color:'rgba(24,25,31,0.5)', marginBottom:12, lineHeight:1.5}}>{t.desc}</div>
+                            <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:12}}>
+                                <div className="aval-num-box" style={{flex:1}}>
+                                    <div className="aval-num-unit-top">REPETIÇÕES</div>
+                                    <div className="aval-num-row">
+                                        <div className="aval-num-val">{val == null ? '–' : val}</div>
+                                        <div className="aval-num-unit">reps</div>
+                                    </div>
+                                    <div className="aval-num-stepper">
+                                        <button onClick={() => t.set(v => v == null ? null : Math.max(0, v-1))}>−</button>
+                                        <button onClick={() => t.set(v => Math.min(t.max, (v == null ? -1 : v)+1))}>+</button>
+                                    </div>
+                                </div>
+                                {currentLevel && (
+                                    <div style={{display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'0 12px'}}>
+                                        <div style={{width:10, height:10, borderRadius:'50%', background:currentLevel.color, marginBottom:6}}/>
+                                        <div style={{fontSize:10, fontWeight:700, color:currentLevel.color, textTransform:'uppercase', letterSpacing:'0.8px', textAlign:'center'}}>{currentLevel.name}</div>
+                                    </div>
+                                )}
+                            </div>
+                            {t.levels.map((l, i) => {
+                                const active = val != null && val >= l.min && val <= l.max;
+                                return (
+                                    <div key={i} className="aval-level-row">
+                                        <div className="aval-level-bar" style={{background: l.color}}/>
+                                        <div className="aval-level-name">{l.name}</div>
+                                        <div className="aval-level-range">{l.range}</div>
+                                        {active && <div className="aval-level-active-dot"/>}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    );
+                })}
+            </>);
+        }
+
         function renderEndurance() {
             const types = [
                 {id:'cooper',  name:'Cooper',      unit:'metros', placeholder:'2600', numeric:true},
                 {id:'remo',    name:'2km Remo',    unit:'MM:SS',  placeholder:'7:30', numeric:false},
-                {id:'bike',    name:'FTP Bike',    unit:'watts',  placeholder:'220',  numeric:true},
+                {id:'bike',    name:'FTP Bike',    unit:'w/kg',   placeholder:'3.8',  numeric:true},
                 {id:'burpees', name:'100 Burpees', unit:'MM:SS',  placeholder:'8:45', numeric:false},
             ];
             const et = types.find(t=>t.id===endType);
@@ -2437,10 +2626,11 @@
             const hikingLevelName = ['Iniciante','Intermediário','Avançado','Elite','World Class'][hikingLevel-1];
             const archetype = avg>=65?'Regatista':avg>=50?'Atleta':'Iniciante';
             const pillars = [
-                {k:'hiking',     l:'Hiking',      c:'#e87a45'},
-                {k:'core',       l:'Core',         c:'#8a7a2e'},
-                {k:'endurance',  l:'Endurance',    c:'#2d6b4f'},
-                {k:'mobilidade', l:'Mobilidade',   c:'#4a8fd9'},
+                {k:'hiking',     l:'Hiking',    c:'#e87a45'},
+                {k:'core',       l:'Core',      c:'#9b7dd4'},
+                {k:'forca',      l:'Força',     c:'#c84b38'},
+                {k:'endurance',  l:'Endurance', c:'#2d6b4f'},
+                {k:'mobilidade', l:'Mobilidade',c:'#4a8fd9'},
             ];
             const plan = [
                 {w:'S1', name:'Base & padrão',   desc:'60–70% · postura, respiração',       c:'var(--card-navy)'},
@@ -2518,25 +2708,26 @@
                     {step===2&&renderContexto()}
                     {step===3&&renderHiking()}
                     {step===4&&renderCore()}
-                    {step===5&&renderEndurance()}
-                    {step===6&&renderMobilidade()}
-                    {step===7&&renderResultado()}
+                    {step===5&&renderForca()}
+                    {step===6&&renderEndurance()}
+                    {step===7&&renderMobilidade()}
+                    {step===8&&renderResultado()}
                 </div>
                 <div className="aval-footer">
                     <button className="aval-btn-back"
                         onClick={step===1 ? onClose : () => setStep(s=>s-1)}>
                         {step===1 ? 'Sair' : 'Voltar'}
                     </button>
-                    {step<7 ? (
+                    {step<8 ? (
                         <button className="aval-btn-next" style={{opacity:canNext()?1:0.38}}
                             onClick={() => canNext()&&setStep(s=>s+1)}>
-                            {step===6?'Ver Resultado':'Continuar →'}
+                            {step===7?'Ver Resultado':'Continuar →'}
                         </button>
                     ) : (
                         <button className="aval-btn-next"
                             style={{background:'var(--card-yellow)', color:'var(--text-dark)'}}
                             onClick={() => {
-                                saveAvaliacao({ hikingSecs, plankSecs, emomRounds: emomRounds||0, endType, endDist, mobScores, scores, classe, categoria });
+                                saveAvaliacao({ hikingSecs, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria });
                                 onClose();
                             }}>GERAR PLANO DE 4 SEMANAS</button>
                     )}
@@ -2556,44 +2747,74 @@
         ativo:     {label:'ATIVO',      bg:'rgba(61,184,122,0.08)',  c:'#3db87a'},
         descanso:  {label:'DESCANSO',   bg:'rgba(24,25,31,0.06)',    c:'rgba(24,25,31,0.35)'},
     };
-    const PLAN_WEEKS = [
-        { id:1, tag:'SEMANA 1 DE 4', name:'Base & padrão', desc:'Volume base · 60–70% · postura e respiração', days: [
-            {type:'endurance', name:'Corrida base Z2',       sub:'Ritmo conversacional · zona 2',      dur:'40 min'},
-            {type:'hiking',    name:'Hiking bench + Core',   sub:'Isometria + prancha EMOM',           dur:'35 min'},
-            {type:'ativo',     name:'Mobilidade ativa',      sub:'Rolamento + alongamento',            dur:'20 min'},
-            {type:'forca',     name:'Circuito funcional',    sub:'Agachamento · remada · push-up',     dur:'40 min'},
-            {type:'endurance', name:'Bike ritmo moderado',   sub:'Cadência constante · Z2–Z3',         dur:'45 min'},
-            {type:'hiking',    name:'Sessão técnica',        sub:'Foco em postura · tempo longo',      dur:'30 min'},
-            {type:'descanso',  name:'Descanso',              sub:'',                                   dur:''},
-        ]},
-        { id:2, tag:'SEMANA 2 DE 4', name:'Estabilidade', desc:'Mesma carga · foco total em técnica e qualidade', days: [
-            {type:'endurance', name:'Corrida base Z2',       sub:'Ritmo estável · mesma carga',        dur:'40 min'},
-            {type:'hiking',    name:'Hiking + Hollow rocks', sub:'Qualidade > quantidade',             dur:'35 min'},
-            {type:'ativo',     name:'Mobilidade ativa',      sub:'Rolamento + mobilidade de quadril',  dur:'20 min'},
-            {type:'forca',     name:'Circuito funcional',    sub:'Técnica limpa · mesma carga',        dur:'40 min'},
-            {type:'endurance', name:'Ergômetro ritmo',       sub:'Pace constante · foco técnico',      dur:'45 min'},
-            {type:'hiking',    name:'Foco em técnica',       sub:'Ajustes de postura e respiração',    dur:'30 min'},
-            {type:'descanso',  name:'Descanso',              sub:'',                                   dur:''},
-        ]},
-        { id:3, tag:'SEMANA 3 DE 4', name:'Overload leve', desc:'+1 série por exercício · aumento de volume cardio', days: [
-            {type:'endurance', name:'Corrida com fartlek',   sub:'Variação de ritmo · +10 min',        dur:'50 min'},
-            {type:'hiking',    name:'Hiking + série extra',  sub:'Adição de 1 série isométrica',       dur:'45 min'},
-            {type:'ativo',     name:'Mobilidade ativa',      sub:'Rolamento + trabalho de ombro',      dur:'20 min'},
-            {type:'forca',     name:'Circuito +1 série',     sub:'Volume ligeiramente aumentado',      dur:'50 min'},
-            {type:'endurance', name:'Bike com intervalos',   sub:'3×8 min Z4 · recuperação ativa',     dur:'55 min'},
-            {type:'hiking',    name:'Sessão bônus',          sub:'Série extra + variação de ângulo',   dur:'35 min'},
-            {type:'descanso',  name:'Descanso',              sub:'',                                   dur:''},
-        ]},
-        { id:4, tag:'SEMANA 4 DE 4', name:'Deload', desc:'Volume reduzido · absorção e prep para o próximo ciclo', days: [
-            {type:'endurance', name:'Corrida leve',          sub:'Ritmo confortável · Z1–Z2',          dur:'30 min'},
-            {type:'core',      name:'Core + mobilidade',     sub:'Suave · sem intensidade alta',       dur:'25 min'},
-            {type:'descanso',  name:'Descanso',              sub:'',                                   dur:''},
-            {type:'forca',     name:'Circuito reduzido',     sub:'Metade do volume habitual',          dur:'30 min'},
-            {type:'ativo',     name:'Caminhada ativa',       sub:'Recuperação leve',                   dur:'20 min'},
-            {type:'hiking',    name:'Técnica · vol. baixo',  sub:'Qualidade · sem fadiga acumulada',   dur:'20 min'},
-            {type:'descanso',  name:'Descanso',              sub:'',                                   dur:''},
-        ]},
-    ];
+    function getPlanWeeks(aval) {
+        const scores = aval ? aval.scores : null;
+        const DAY_NAMES = {
+            endurance: [
+                {name:'Corrida base Z2',       sub:'Ritmo conversacional · zona 2',     dur:'40 min'},
+                {name:'Corrida base Z2',       sub:'Ritmo estável · mesma carga',       dur:'40 min'},
+                {name:'Corrida com fartlek',   sub:'Variação de ritmo · +10 min',       dur:'50 min'},
+                {name:'Corrida leve',          sub:'Ritmo confortável · Z1–Z2',         dur:'30 min'},
+            ],
+            hiking: [
+                {name:'Hiking bench + Core',   sub:'Isometria + prancha EMOM',          dur:'35 min'},
+                {name:'Hiking + Hollow rocks', sub:'Qualidade > quantidade',            dur:'35 min'},
+                {name:'Hiking + série extra',  sub:'Adição de 1 série isométrica',      dur:'45 min'},
+                {name:'Técnica · vol. baixo',  sub:'Qualidade · sem fadiga acumulada',  dur:'20 min'},
+            ],
+            forca: [
+                {name:'Circuito funcional',    sub:'Agachamento · remada · push-up',    dur:'40 min'},
+                {name:'Circuito funcional',    sub:'Técnica limpa · mesma carga',       dur:'40 min'},
+                {name:'Circuito +1 série',     sub:'Volume ligeiramente aumentado',     dur:'50 min'},
+                {name:'Circuito reduzido',     sub:'Metade do volume habitual',         dur:'30 min'},
+            ],
+            core: [
+                {name:'Core funcional',        sub:'Hollow hold · dead bug · prancha',  dur:'30 min'},
+                {name:'Core estabilidade',     sub:'Foco em técnica e respiração',      dur:'30 min'},
+                {name:'Core + volume',         sub:'Série extra · maior densidade',     dur:'35 min'},
+                {name:'Core + mobilidade',     sub:'Suave · sem intensidade alta',      dur:'25 min'},
+            ],
+            ativo: [
+                {name:'Mobilidade ativa',      sub:'Rolamento + alongamento',           dur:'20 min'},
+                {name:'Mobilidade ativa',      sub:'Rolamento + mobilidade de quadril', dur:'20 min'},
+                {name:'Mobilidade ativa',      sub:'Rolamento + trabalho de ombro',     dur:'20 min'},
+                {name:'Caminhada ativa',       sub:'Recuperação leve',                  dur:'20 min'},
+            ],
+            descanso: [
+                {name:'Descanso', sub:'', dur:''},
+                {name:'Descanso', sub:'', dur:''},
+                {name:'Descanso', sub:'', dur:''},
+                {name:'Descanso', sub:'', dur:''},
+            ],
+        };
+        function d(type, wi) { return { type, ...DAY_NAMES[type][wi] }; }
+
+        const trainable = [
+            {t:'hiking',    s: scores?.hiking    ?? 50},
+            {t:'core',      s: scores?.core      ?? 50},
+            {t:'forca',     s: scores?.forca     ?? 50},
+            {t:'endurance', s: scores?.endurance ?? 50},
+        ].sort((a, b) => a.s - b.s);
+        // endurance e core são base do treino de vela — sempre 2× por semana
+        const flex = trainable.filter(x => x.t !== 'endurance' && x.t !== 'core');
+        const [f0, f1] = flex.map(x => x.t); // 2 tipos restantes (hiking, forca), ordenados do mais fraco
+        // 5 slots fixos: endurance×2 + core×2 + 1 slot para o pilar mais fraco dos restantes
+        const types = ['endurance', 'core', f0, 'endurance', 'core'];
+
+        const META = [
+            {id:1, tag:'SEMANA 1 DE 4', name:'Base & padrão', desc:'Volume base · 60–70% · postura e respiração'},
+            {id:2, tag:'SEMANA 2 DE 4', name:'Estabilidade',  desc:'Mesma carga · foco total em técnica e qualidade'},
+            {id:3, tag:'SEMANA 3 DE 4', name:'Overload leve', desc:'+1 série por exercício · aumento de volume cardio'},
+            {id:4, tag:'SEMANA 4 DE 4', name:'Deload',        desc:'Volume reduzido · absorção e prep para o próximo ciclo'},
+        ];
+        return META.map((m, wi) => ({
+            ...m,
+            days: wi < 3
+                ? [d(types[0],wi), d(types[1],wi), d('ativo',wi), d(types[2],wi), d(types[3],wi), d(types[4],wi), d('descanso',wi)]
+                : [d(types[0],3),  d(types[2],3),  d('descanso',3), d(types[1],3), d('ativo',3),  d(types[4],3),  d('descanso',3)],
+        }));
+    }
+    const PLAN_WEEKS = getPlanWeeks(getAvaliacao());
 
     const SESSION_TEMPLATES = {
         endurance: [
@@ -2668,9 +2889,361 @@
         ],
     };
 
+    function getSessionSections(type, aval, cardioMode) {
+        const scores = aval ? aval.scores : null;
+        const scoreMap = { endurance:'endurance', hiking:'hiking', forca:'forca', core:'core', ativo:'mobilidade' };
+        const key = scoreMap[type];
+        const score = scores && key ? (scores[key] ?? 50) : 50;
+        const tier = score < 35 ? 'L' : score < 65 ? 'M' : 'H';
+        const mode = cardioMode || 'corrida';
+        const cardioExercise = mode === 'bike' ? 'Bike Z2' : mode === 'remo' ? 'Ergômetro Z2' : 'Corrida Z2';
+        const cardioDetail  = { L:'15 min', M:'30 min', H:'35 min' };
+        const intervDetail  = { L:'–',      M:'3 × 2 min', H:'5 × 2 min' };
+        const burpeesDetail = { L:'3 × 5 rep', M:'3 × 8 rep', H:'4 × 10 rep' };
+
+        const S = {
+            // ── ENDURANCE ──────────────────────────────────────────────────
+            endurance: {
+                L: [
+                    { title:'MOBILIZAÇÃO', color:'#3db87a', items:[
+                        {name:'Abertura de quadril',    detail:'1 × 45s cada', rest:''},
+                        {name:'Leg swing frontal',      detail:'1 × 10 cada',  rest:''},
+                        {name:'Caminhada aquecimento',  detail:'5 min',        rest:''},
+                    ]},
+                    { title:`CARDIO · ${mode.toUpperCase()} · Z2`, color:'#2d6b4f', items:[
+                        {name:cardioExercise,           detail:cardioDetail.L,  rest:''},
+                        {name:'Caminhada ativa',        detail:'5 min',         rest:''},
+                    ]},
+                    { title:'CORE + BURPEES', color:'#9b7dd4', items:[
+                        {name:'Burpees',                detail:burpeesDetail.L, rest:'60s'},
+                        {name:'Prancha frontal',        detail:'2 × 20s',       rest:'30s'},
+                        {name:'Dead bug',               detail:'2 × 8 rep',     rest:'30s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#3db87a', items:[
+                        {name:'Alongamento posterior',  detail:'2 × 30s',      rest:''},
+                        {name:'Torção torácica',        detail:'1 × 10 rep',   rest:''},
+                    ]},
+                ],
+                M: [
+                    { title:'MOBILIZAÇÃO', color:'#3db87a', items:[
+                        {name:'Abertura de quadril',    detail:'2 × 45s cada', rest:''},
+                        {name:'Leg swing frontal',      detail:'2 × 10 cada',  rest:''},
+                        {name:cardioExercise+' leve',   detail:'5 min',        rest:''},
+                    ]},
+                    { title:`CARDIO · ${mode.toUpperCase()} · Z2`, color:'#2d6b4f', items:[
+                        {name:cardioExercise,           detail:cardioDetail.M,  rest:''},
+                        {name:'Variação de cadência',   detail:intervDetail.M,  rest:'60s'},
+                    ]},
+                    { title:'CORE + BURPEES', color:'#9b7dd4', items:[
+                        {name:'Burpees',                detail:burpeesDetail.M, rest:'60s'},
+                        {name:'Hollow hold',            detail:'3 × 20s',       rest:'30s'},
+                        {name:'Dead bug',               detail:'3 × 10 rep',    rest:'30s'},
+                        {name:'Prancha lateral',        detail:'2 × 30s cada',  rest:'30s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#3db87a', items:[
+                        {name:'Alongamento posterior',  detail:'2 × 30s',      rest:''},
+                        {name:'90/90 de quadril',       detail:'1 × 60s cada', rest:''},
+                    ]},
+                ],
+                H: [
+                    { title:'MOBILIZAÇÃO', color:'#3db87a', items:[
+                        {name:'Abertura de quadril',    detail:'2 × 60s cada', rest:''},
+                        {name:'Leg swing multi-plano',  detail:'2 × 12 cada',  rest:''},
+                        {name:cardioExercise+' prog.',  detail:'8 min',        rest:''},
+                    ]},
+                    { title:`CARDIO · ${mode.toUpperCase()} · Z2–3`, color:'#2d6b4f', items:[
+                        {name:cardioExercise,           detail:cardioDetail.H,  rest:''},
+                        {name:'Intervalo Z3',           detail:'4 × 3 min',     rest:'90s'},
+                        {name:'Variação de cadência',   detail:intervDetail.H,  rest:'45s'},
+                    ]},
+                    { title:'CORE + BURPEES + FORÇA', color:'#9b7dd4', items:[
+                        {name:'Burpees',                detail:burpeesDetail.H, rest:'60s'},
+                        {name:'Hollow hold',            detail:'4 × 30s',       rest:'30s'},
+                        {name:'Dead bug',               detail:'4 × 12 rep',    rest:'30s'},
+                        {name:'Prancha lateral',        detail:'3 × 40s cada',  rest:'30s'},
+                        {name:'Push-up',                detail:'3 × 12 rep',    rest:'45s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#3db87a', items:[
+                        {name:'Pigeon pose',            detail:'2 × 60s cada', rest:''},
+                        {name:'Torção torácica',        detail:'2 × 10 rep',   rest:''},
+                        {name:'Foam roll · pernas',     detail:'2 min',        rest:''},
+                    ]},
+                ],
+            },
+            // ── HIKING ─────────────────────────────────────────────────────
+            hiking: {
+                L: [
+                    { title:'ATIVAÇÃO CARDIO + MOBILIDADE', color:'#4a8fd9', items:[
+                        {name:'Polichinelo',            detail:'2 × 20 rep',   rest:'30s'},
+                        {name:'Mobilidade de joelho',   detail:'1 × 10 rep',   rest:''},
+                        {name:'Abertura de quadril',    detail:'1 × 45s cada', rest:''},
+                    ]},
+                    { title:'HIKING BENCH', color:'#4a8fd9', items:[
+                        {name:'Wall sit',               detail:'2 × 30s',      rest:'60s'},
+                        {name:'Single-leg stance',      detail:'2 × 20s cada', rest:'45s'},
+                    ]},
+                    { title:'FORÇA COMPLEMENTAR', color:'#e87a45', items:[
+                        {name:'Push-up (joelho)',        detail:'2 × 8 rep',    rest:'60s'},
+                        {name:'Prancha frontal',         detail:'2 × 20s',      rest:'30s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#4a8fd9', items:[
+                        {name:'Foam roll · quadríceps', detail:'2 min',        rest:''},
+                        {name:'Pigeon pose',            detail:'1 × 60s cada', rest:''},
+                    ]},
+                ],
+                M: [
+                    { title:'ATIVAÇÃO CARDIO + MOBILIDADE', color:'#4a8fd9', items:[
+                        {name:'Polichinelo',            detail:'3 × 20 rep',   rest:'30s'},
+                        {name:'Mobilidade de joelho',   detail:'2 × 10 rep',   rest:''},
+                        {name:'Leg swing frontal',      detail:'2 × 10 cada',  rest:''},
+                    ]},
+                    { title:'HIKING BENCH', color:'#4a8fd9', items:[
+                        {name:'Hiking bench isométrico',detail:'3 × máximo',   rest:'2 min'},
+                        {name:'Wall sit',               detail:'2 × 60s',      rest:'90s'},
+                        {name:'Single-leg stance',      detail:'3 × 30s cada', rest:'45s'},
+                    ]},
+                    { title:'FORÇA COMPLEMENTAR', color:'#e87a45', items:[
+                        {name:'Push-up',                detail:'3 × 12 rep',   rest:'60s'},
+                        {name:'Inverted row',           detail:'3 × 10 rep',   rest:'60s'},
+                        {name:'Prancha frontal',        detail:'3 × 30s',      rest:'30s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#4a8fd9', items:[
+                        {name:'Foam roll · quadríceps', detail:'3 min',        rest:''},
+                        {name:'Pigeon pose',            detail:'2 × 60s cada', rest:''},
+                        {name:'90/90 de quadril',       detail:'1 × 60s cada', rest:''},
+                    ]},
+                ],
+                H: [
+                    { title:'ATIVAÇÃO CARDIO + MOBILIDADE', color:'#4a8fd9', items:[
+                        {name:'Corrida leve',           detail:'8 min',        rest:''},
+                        {name:'Mobilidade de joelho',   detail:'2 × 12 rep',   rest:''},
+                        {name:'Leg swing multi-plano',  detail:'2 × 12 cada',  rest:''},
+                    ]},
+                    { title:'HIKING BENCH · ALTO VOLUME', color:'#4a8fd9', items:[
+                        {name:'Hiking bench isométrico',detail:'5 × máximo',   rest:'90s'},
+                        {name:'Wall sit',               detail:'3 × 90s',      rest:'90s'},
+                        {name:'Single-leg stance',      detail:'4 × 45s cada', rest:'30s'},
+                        {name:'Step-up lastrado',       detail:'3 × 12 cada',  rest:'60s'},
+                    ]},
+                    { title:'FORÇA + CORE INTEGRADO', color:'#e87a45', items:[
+                        {name:'Push-up',                detail:'4 × 15 rep',   rest:'60s'},
+                        {name:'Barra / inverted row',   detail:'3 × 8 rep',    rest:'75s'},
+                        {name:'Hollow hold',            detail:'3 × 25s',      rest:'30s'},
+                        {name:'Mountain climbers',      detail:'3 × 20 rep',   rest:'45s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#4a8fd9', items:[
+                        {name:'Foam roll · pernas',     detail:'4 min',        rest:''},
+                        {name:'Pigeon pose',            detail:'2 × 90s cada', rest:''},
+                        {name:'Torção torácica',        detail:'2 × 10 rep',   rest:''},
+                    ]},
+                ],
+            },
+            // ── FORÇA ──────────────────────────────────────────────────────
+            forca: {
+                L: [
+                    { title:'MOBILIZAÇÃO + CARDIO', color:'#e87a45', items:[
+                        {name:'Polichinelo',            detail:'2 × 15 rep',   rest:'30s'},
+                        {name:'Abertura de quadril',    detail:'1 × 45s cada', rest:''},
+                        {name:'Cat-cow',                detail:'1 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CIRCUITO DE FORÇA', color:'#e87a45', items:[
+                        {name:'Agachamento',            detail:'3 × 10 rep',   rest:'60s'},
+                        {name:'Push-up (joelho)',        detail:'3 × 8 rep',    rest:'60s'},
+                        {name:'Romanian deadlift',      detail:'2 × 10 rep',   rest:'75s'},
+                    ]},
+                    { title:'CORE INTEGRADO', color:'#9b7dd4', items:[
+                        {name:'Prancha frontal',        detail:'2 × 20s',      rest:'30s'},
+                        {name:'Dead bug',               detail:'2 × 8 rep',    rest:'30s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#e87a45', items:[
+                        {name:'Alongamento de peito',   detail:'2 × 30s',      rest:''},
+                        {name:'90/90 de quadril',       detail:'1 × 60s cada', rest:''},
+                    ]},
+                ],
+                M: [
+                    { title:'MOBILIZAÇÃO + CARDIO', color:'#e87a45', items:[
+                        {name:'Polichinelo',            detail:'3 × 20 rep',   rest:'30s'},
+                        {name:'Agachamento livre',      detail:'2 × 15 rep',   rest:'45s'},
+                        {name:'Abertura de quadril',    detail:'1 × 45s cada', rest:''},
+                    ]},
+                    { title:'CIRCUITO DE FORÇA', color:'#e87a45', items:[
+                        {name:'Agachamento + remada',   detail:'3 × 12 rep',   rest:'90s'},
+                        {name:'Push-up',                detail:'3 × 15 rep',   rest:'60s'},
+                        {name:'Romanian deadlift',      detail:'3 × 10 rep',   rest:'90s'},
+                        {name:'Inverted row',           detail:'3 × 10 rep',   rest:'75s'},
+                    ]},
+                    { title:'CORE INTEGRADO', color:'#9b7dd4', items:[
+                        {name:'Prancha frontal',        detail:'3 × 40s',      rest:'30s'},
+                        {name:'Dead bug',               detail:'3 × 10 rep',   rest:'30s'},
+                        {name:'Prancha lateral',        detail:'2 × 30s cada', rest:'30s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#e87a45', items:[
+                        {name:'Alongamento de peito',   detail:'2 × 30s',      rest:''},
+                        {name:'90/90 de quadril',       detail:'2 × 60s cada', rest:''},
+                        {name:'Torção torácica',        detail:'1 × 10 rep',   rest:''},
+                    ]},
+                ],
+                H: [
+                    { title:'MOBILIZAÇÃO + CARDIO', color:'#e87a45', items:[
+                        {name:'Corrida leve',           detail:'5 min',        rest:''},
+                        {name:'Agachamento livre',      detail:'3 × 15 rep',   rest:'45s'},
+                        {name:'Mobilidade de ombro',    detail:'2 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CIRCUITO DE FORÇA · ALTA CARGA', color:'#e87a45', items:[
+                        {name:'Agachamento + remada',   detail:'4 × 12 rep',   rest:'75s'},
+                        {name:'Push-up',                detail:'4 × 20 rep',   rest:'60s'},
+                        {name:'Barra / inverted row',   detail:'4 × 8 rep',    rest:'90s'},
+                        {name:'Romanian deadlift',      detail:'4 × 10 rep',   rest:'90s'},
+                        {name:'Farmer carry',           detail:'3 × 30m',      rest:'60s'},
+                    ]},
+                    { title:'CORE + CONDICIONAMENTO', color:'#9b7dd4', items:[
+                        {name:'Hollow hold',            detail:'4 × 30s',      rest:'30s'},
+                        {name:'Prancha lateral',        detail:'3 × 45s cada', rest:'30s'},
+                        {name:'Mountain climbers',      detail:'3 × 25 rep',   rest:'45s'},
+                        {name:'Ab wheel rollout',       detail:'3 × 8 rep',    rest:'60s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#e87a45', items:[
+                        {name:'Pigeon pose',            detail:'2 × 90s cada', rest:''},
+                        {name:'Alongamento de peito',   detail:'2 × 30s',      rest:''},
+                        {name:'Foam roll · costas',     detail:'2 min',        rest:''},
+                    ]},
+                ],
+            },
+            // ── CORE ───────────────────────────────────────────────────────
+            core: {
+                L: [
+                    { title:'ATIVAÇÃO CARDIO + RESPIRAÇÃO', color:'#9b7dd4', items:[
+                        {name:'Polichinelo',            detail:'2 × 15 rep',   rest:'30s'},
+                        {name:'Respiração diafragmática',detail:'2 × 8 rep',  rest:''},
+                        {name:'Cat-cow',                detail:'2 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CIRCUITO CORE', color:'#9b7dd4', items:[
+                        {name:'Dead bug',               detail:'2 × 8 rep',    rest:'45s'},
+                        {name:'Prancha frontal',        detail:'2 × 20s',      rest:'30s'},
+                        {name:'Glute bridge',           detail:'2 × 12 rep',   rest:'30s'},
+                    ]},
+                    { title:'FORÇA ACESSÓRIA', color:'#e87a45', items:[
+                        {name:'Push-up (joelho)',        detail:'2 × 8 rep',    rest:'60s'},
+                        {name:'Inverted row',           detail:'2 × 8 rep',    rest:'60s'},
+                    ]},
+                    { title:'MOBILIDADE TORÁCICA', color:'#3db87a', items:[
+                        {name:'Torção torácica',        detail:'2 × 10 rep',   rest:''},
+                        {name:'Cat-cow dinâmico',       detail:'2 × 10 rep',   rest:''},
+                        {name:'Posição fetal',          detail:'1 × 60s',      rest:''},
+                    ]},
+                ],
+                M: [
+                    { title:'ATIVAÇÃO CARDIO + RESPIRAÇÃO', color:'#9b7dd4', items:[
+                        {name:'Corrida leve',           detail:'5 min',        rest:''},
+                        {name:'Respiração diafragmática',detail:'2 × 10 rep', rest:''},
+                        {name:'Cat-cow',                detail:'2 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CIRCUITO CORE', color:'#9b7dd4', items:[
+                        {name:'Hollow hold',            detail:'4 × 20s',      rest:'30s'},
+                        {name:'Dead bug',               detail:'3 × 10 rep',   rest:'45s'},
+                        {name:'Prancha lateral',        detail:'3 × 30s cada', rest:'30s'},
+                        {name:'Mountain climbers',      detail:'3 × 20 rep',   rest:'45s'},
+                    ]},
+                    { title:'FORÇA ACESSÓRIA', color:'#e87a45', items:[
+                        {name:'Push-up',                detail:'3 × 12 rep',   rest:'60s'},
+                        {name:'Inverted row',           detail:'3 × 10 rep',   rest:'60s'},
+                        {name:'Wall sit',               detail:'2 × 45s',      rest:'60s'},
+                    ]},
+                    { title:'MOBILIDADE TORÁCICA', color:'#3db87a', items:[
+                        {name:'Torção torácica',        detail:'2 × 10 rep',   rest:''},
+                        {name:'Abertura de quadril',    detail:'2 × 45s cada', rest:''},
+                        {name:'Posição fetal',          detail:'1 × 60s',      rest:''},
+                    ]},
+                ],
+                H: [
+                    { title:'ATIVAÇÃO CARDIO + RESPIRAÇÃO', color:'#9b7dd4', items:[
+                        {name:'Corrida leve',           detail:'8 min',        rest:''},
+                        {name:'Respiração diafragmática',detail:'2 × 10 rep', rest:''},
+                        {name:'Cat-cow',                detail:'2 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CIRCUITO CORE · ALTO VOLUME', color:'#9b7dd4', items:[
+                        {name:'Hollow hold',            detail:'5 × 30s',      rest:'30s'},
+                        {name:'Dead bug',               detail:'4 × 12 rep',   rest:'45s'},
+                        {name:'Prancha lateral',        detail:'4 × 45s cada', rest:'30s'},
+                        {name:'Mountain climbers',      detail:'4 × 25 rep',   rest:'45s'},
+                        {name:'Ab wheel rollout',       detail:'3 × 8 rep',    rest:'60s'},
+                    ]},
+                    { title:'FORÇA + CONDICIONAMENTO', color:'#e87a45', items:[
+                        {name:'Push-up',                detail:'4 × 15 rep',   rest:'60s'},
+                        {name:'Barra / inverted row',   detail:'3 × 8 rep',    rest:'75s'},
+                        {name:'Wall sit',               detail:'3 × 60s',      rest:'75s'},
+                        {name:'Agachamento jump',       detail:'3 × 12 rep',   rest:'60s'},
+                    ]},
+                    { title:'MOBILIDADE TORÁCICA', color:'#3db87a', items:[
+                        {name:'Torção torácica',        detail:'3 × 10 rep',   rest:''},
+                        {name:'Pigeon pose',            detail:'2 × 60s cada', rest:''},
+                        {name:'Foam roll · coluna',     detail:'2 min',        rest:''},
+                    ]},
+                ],
+            },
+            // ── ATIVO ──────────────────────────────────────────────────────
+            ativo: {
+                L: [
+                    { title:'MOBILIDADE ATIVA', color:'#3db87a', items:[
+                        {name:'Rolamento de quadril',   detail:'1 × 60s',      rest:''},
+                        {name:'Torção torácica',        detail:'2 × 10 rep',   rest:''},
+                        {name:'Cat-cow dinâmico',       detail:'2 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CARDIO LEVE', color:'#2d6b4f', items:[
+                        {name:'Caminhada',              detail:'10 min',       rest:''},
+                    ]},
+                    { title:'FOAM ROLL', color:'#3db87a', items:[
+                        {name:'Foam roll · pernas',     detail:'3 min',        rest:''},
+                        {name:'Foam roll · costas',     detail:'2 min',        rest:''},
+                    ]},
+                ],
+                M: [
+                    { title:'MOBILIDADE ATIVA', color:'#3db87a', items:[
+                        {name:'Rolamento de quadril',   detail:'2 × 60s',      rest:''},
+                        {name:'Meia-lua lateral',       detail:'2 × 30s cada', rest:''},
+                        {name:'Torção torácica',        detail:'2 × 10 rep',   rest:''},
+                        {name:'Abertura de quadril',    detail:'2 × 45s',      rest:''},
+                        {name:'Cat-cow dinâmico',       detail:'2 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CARDIO LEVE', color:'#2d6b4f', items:[
+                        {name:'Caminhada ou bike leve', detail:'15 min',       rest:''},
+                    ]},
+                    { title:'FOAM ROLL', color:'#3db87a', items:[
+                        {name:'Foam roll · pernas',     detail:'3 min',        rest:''},
+                        {name:'Foam roll · costas',     detail:'2 min',        rest:''},
+                        {name:'Foam roll · ombros',     detail:'2 min',        rest:''},
+                    ]},
+                ],
+                H: [
+                    { title:'MOBILIDADE ATIVA', color:'#3db87a', items:[
+                        {name:'Rolamento de quadril',   detail:'3 × 60s',      rest:''},
+                        {name:'Meia-lua lateral',       detail:'3 × 30s cada', rest:''},
+                        {name:'Torção torácica',        detail:'3 × 10 rep',   rest:''},
+                        {name:'Abertura de quadril',    detail:'3 × 45s',      rest:''},
+                        {name:'Cat-cow dinâmico',       detail:'3 × 10 rep',   rest:''},
+                        {name:'Pigeon pose',            detail:'2 × 60s cada', rest:''},
+                    ]},
+                    { title:'CARDIO LEVE', color:'#2d6b4f', items:[
+                        {name:'Corrida Z1 suave',       detail:'20 min',       rest:''},
+                    ]},
+                    { title:'FOAM ROLL COMPLETO', color:'#3db87a', items:[
+                        {name:'Foam roll · pernas',     detail:'4 min',        rest:''},
+                        {name:'Foam roll · IT band',    detail:'2 min cada',   rest:''},
+                        {name:'Foam roll · costas',     detail:'3 min',        rest:''},
+                        {name:'Foam roll · ombros',     detail:'2 min',        rest:''},
+                    ]},
+                ],
+            },
+        };
+
+        return (S[type] && S[type][tier]) || SESSION_TEMPLATES[type] || [];
+    }
+
     function TelaSessaoDetalhe({ session, dayLabel, weekName, onBack }) {
         const b = (PLAN_BADGE[session.type] || PLAN_BADGE['forca']);
-        const sections = SESSION_TEMPLATES[session.type] || [];
+        const [cardioMode, setCardioModeState] = useState(getCardioMode);
+        function pickCardio(m) { setCardioModeState(m); saveCardioMode(m); }
+        const sections = getSessionSections(session.type, getAvaliacao(), cardioMode);
         return (
             <div className="sd-wrap">
                 <div className="sd-topbar">
@@ -2700,6 +3273,20 @@
                         </div>
                     )}
                 </div>
+                {session.type === 'endurance' && (
+                    <div style={{padding:'12px 20px 4px', display:'flex', gap:8, alignItems:'center'}}>
+                        <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.4px', color:'rgba(24,25,31,0.4)', marginRight:4}}>MODALIDADE</div>
+                        {['corrida','bike','remo'].map(m => (
+                            <button key={m} onClick={() => pickCardio(m)} style={{
+                                padding:'5px 12px', borderRadius:20, border:'none', cursor:'pointer',
+                                fontSize:10, fontWeight:700, letterSpacing:'0.6px', textTransform:'uppercase',
+                                background: cardioMode===m ? '#18191f' : 'rgba(24,25,31,0.07)',
+                                color: cardioMode===m ? '#fff' : 'rgba(24,25,31,0.5)',
+                                transition:'all 0.15s',
+                            }}>{m}</button>
+                        ))}
+                    </div>
+                )}
                 {sections.map((sec, si) => (
                     <div key={si} className="sd-section">
                         <div className="sd-sec-title">{sec.title}</div>
@@ -2819,7 +3406,7 @@
             switch (tab) {
                 case 'hoje':      return <TelaHoje      setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
                 case 'plano':     return <TelaPlano/>;
-                case 'testes':    return <TelaTestes/>;
+                case 'testes':    return <TelaTestes setModal={setModal}/>;
                 case 'biblioteca':return <TelaBiblioteca/>;
                 case 'pulso':     return <TelaPulso/>;
                 case 'perfil':    return <TelaPerfil    setModal={setModal} sailingMode={sailingMode} setSailingMode={toggleSailing}/>;
