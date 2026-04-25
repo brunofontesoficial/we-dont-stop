@@ -3383,10 +3383,11 @@
         const [sailingMode,  setSailingMode]  = useState(() => localStorage.getItem('regata_sailing') !== '0');
         const [tab,          setTab]          = useState('hoje');
         const [modal,        setModal]        = useState(null);
+        const [refreshKey,   setRefreshKey]   = useState(0);
 
         const [sessionData, setSessionData] = useState(null);
         const openSession = (data) => { setSessionData(data); setModal('sessao'); };
-        const closeModal  = () => { setModal(null); };
+        const closeModal  = () => { setModal(null); setRefreshKey(k => k + 1); };
 
         if (!onboarded) return <TelaOnboarding onComplete={() => setOnboarded(true)}/>;
 
@@ -3404,13 +3405,13 @@
 
         const renderTab = () => {
             switch (tab) {
-                case 'hoje':      return <TelaHoje      setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
+                case 'hoje':      return <TelaHoje      key={refreshKey} setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
                 case 'plano':     return <TelaPlano/>;
                 case 'testes':    return <TelaTestes setModal={setModal}/>;
                 case 'biblioteca':return <TelaBiblioteca/>;
                 case 'pulso':     return <TelaPulso/>;
                 case 'perfil':    return <TelaPerfil    setModal={setModal} sailingMode={sailingMode} setSailingMode={toggleSailing}/>;
-                default:          return <TelaHoje      setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
+                default:          return <TelaHoje      key={refreshKey} setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
             }
         };
 
