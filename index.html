@@ -775,6 +775,19 @@
             localStorage.setItem('regata_profile', JSON.stringify({ ...cur, ...patch }));
         } catch { /* storage unavailable */ }
     }
+    function saveAvaliacao(data) {
+        try {
+            localStorage.setItem('regata_avaliacao', JSON.stringify({
+                ...data,
+                date: new Date().toLocaleDateString('sv'),
+            }));
+        } catch { /* storage unavailable */ }
+    }
+    function getAvaliacao() {
+        try {
+            return JSON.parse(localStorage.getItem('regata_avaliacao') || 'null');
+        } catch { return null; }
+    }
     function getRaceDaysLeft(raceDate) {
         const race = new Date(raceDate + 'T00:00:00');
         const today = new Date(); today.setHours(0,0,0,0);
@@ -872,7 +885,7 @@
                                     <path d="M8 16C8 17.1 8.9 18 10 18S12 17.1 12 16" stroke="var(--text-dark)" strokeWidth="1.5"/>
                                 </svg>
                             </div>
-                            <div className="avatar">BF</div>
+                            <div className="avatar">{(profile.firstName[0]||'B')}{(profile.lastName[0]||'F')}</div>
                         </div>
                     </div>
                 </div>
@@ -998,13 +1011,15 @@
                     </div>
                 </div>
                 <div className="pilares-scroll">
-                    {[
-                        { name:'Força',     num:82, color:'var(--card-navy)', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 9h14M5 6v6M13 6v6M5 9h1M13 9h-1" stroke="#1c2440" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-                        { name:'Endurance', num:64, color:'#c84b38', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3C6.24 3 4 5.24 4 8c0 4 5 8 5 8s5-4 5-8c0-2.76-2.24-5-5-5z" stroke="#c84b38" strokeWidth="1.5"/><circle cx="9" cy="8" r="2" stroke="#c84b38" strokeWidth="1.5"/></svg> },
-                        { name:'Core',      num:71, color:'#e87a45', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2v14M5 5l4 4 4-4M5 13l4-4 4 4" stroke="#e87a45" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-                        { name:'Mobilidade',num:58, color:'#9b7dd4', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="5" r="2" stroke="#9b7dd4" strokeWidth="1.5"/><path d="M5 9c0 0 1.5-2 4-2s4 2 4 2v5H5V9z" stroke="#9b7dd4" strokeWidth="1.5" strokeLinejoin="round"/></svg> },
-                        { name:'Mental',    num:77, color:'#3db87a', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9C3 5.69 5.69 3 9 3s6 2.69 6 6c0 2-1 3.5-2.5 4.5L12 15H6l-.5-1.5C4 12.5 3 11 3 9z" stroke="#3db87a" strokeWidth="1.5"/><path d="M7 9h4M9 7v4" stroke="#3db87a" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-                    ].map((p,i) => (
+                    {(() => {
+                        const aval = getAvaliacao();
+                        return [
+                        { name:'Força',     num: aval ? aval.scores.hiking     : '—', color:'var(--card-navy)', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 9h14M5 6v6M13 6v6M5 9h1M13 9h-1" stroke="#1c2440" strokeWidth="1.5" strokeLinecap="round"/></svg> },
+                        { name:'Endurance', num: aval ? aval.scores.endurance  : '—', color:'#c84b38', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3C6.24 3 4 5.24 4 8c0 4 5 8 5 8s5-4 5-8c0-2.76-2.24-5-5-5z" stroke="#c84b38" strokeWidth="1.5"/><circle cx="9" cy="8" r="2" stroke="#c84b38" strokeWidth="1.5"/></svg> },
+                        { name:'Core',      num: aval ? aval.scores.core       : '—', color:'#e87a45', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2v14M5 5l4 4 4-4M5 13l4-4 4 4" stroke="#e87a45" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+                        { name:'Mobilidade',num: aval ? aval.scores.mobilidade : '—', color:'#9b7dd4', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="5" r="2" stroke="#9b7dd4" strokeWidth="1.5"/><path d="M5 9c0 0 1.5-2 4-2s4 2 4 2v5H5V9z" stroke="#9b7dd4" strokeWidth="1.5" strokeLinejoin="round"/></svg> },
+                        { name:'Mental',    num: 77,                                   color:'#3db87a', icon:<svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9C3 5.69 5.69 3 9 3s6 2.69 6 6c0 2-1 3.5-2.5 4.5L12 15H6l-.5-1.5C4 12.5 3 11 3 9z" stroke="#3db87a" strokeWidth="1.5"/><path d="M7 9h4M9 7v4" stroke="#3db87a" strokeWidth="1.5" strokeLinecap="round"/></svg> },
+                    ];})().map((p,i) => (
                         <div key={i} className="pilar-card">
                             {p.icon}
                             <div className="pilar-num">{p.num}</div>
@@ -1119,19 +1134,29 @@
     }
 
     function TelaTestes() {
+        const aval    = getAvaliacao();
+        const profile = getProfile();
+        const hikingSecs  = aval ? aval.hikingSecs  : 112;
+        const plankSecs   = aval ? (aval.plankSecs  || 95) : 95;
+        const hikingLevel = hikingSecs>=240?5:hikingSecs>=180?4:hikingSecs>=120?3:hikingSecs>=60?2:1;
+        const hikingLevelNames = ['Iniciante','Intermediário','Avançado','Elite','World Class'];
+        const levelName   = hikingLevelNames[hikingLevel-1];
+        const levelPct    = [0.2,0.4,0.67,0.82,1][hikingLevel-1];
+        function levelTag(s) { return s>=80?{level:'ELITE',tag:'tag-avancado'}:s>=65?{level:'AVANÇADO',tag:'tag-avancado'}:s>=50?{level:'SÓLIDO',tag:'tag-solido'}:s>=35?{level:'FORTE',tag:'tag-forte'}:{level:'BOM',tag:'tag-bom'}; }
+        const endUser = aval ? { type: aval.endType, val: aval.endDist } : null;
         const CORE = [
-            { name:'Hiking Bench', desc:'Isometria postural · s', score:112, unit:'s', level:'AVANÇADO', tag:'tag-avancado', barPct:0.93, icon:'timer',  bg:'rgba(240,197,46,0.14)',  ic:'#b49218' },
-            { name:'Plank Frontal', desc:'Core · s',              score:95,  unit:'s', level:'SÓLIDO',   tag:'tag-solido',   barPct:0.78, icon:'plank',  bg:'rgba(240,197,46,0.14)',  ic:'#b49218' },
+            { name:'Hiking Bench', desc:'Isometria postural · s', score:hikingSecs, unit:'s', ...levelTag(aval?aval.scores.hiking:70), barPct:Math.min(1,hikingSecs/240), icon:'timer',  bg:'rgba(240,197,46,0.14)',  ic:'#b49218' },
+            { name:'Plank Frontal', desc:'Core · s',              score:plankSecs,  unit:'s', ...levelTag(aval?aval.scores.core:65),   barPct:Math.min(1,plankSecs/120),  icon:'plank',  bg:'rgba(240,197,46,0.14)',  ic:'#b49218' },
             { name:'Dead Hang',     desc:'Força relativa · s',    score:74,  unit:'s', level:'SÓLIDO',   tag:'tag-solido',   barPct:0.78, icon:'hang',   bg:'rgba(155,125,212,0.14)', ic:'#9b7dd4' },
             { name:'Push-up Max',   desc:'Empurrar · reps',       score:34,  unit:'reps', level:'FORTE', tag:'tag-forte',    barPct:0.65, icon:'pushup', bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
             { name:'Pull-up Max',   desc:'Puxar · reps',          score:9,   unit:'reps', level:'FORTE', tag:'tag-forte',    barPct:0.65, icon:'pullup', bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
             { name:'Sit-up 2min',   desc:'Abdômen · reps',        score:52,  unit:'reps', level:'FORTE', tag:'tag-forte',    barPct:0.65, icon:'situp',  bg:'rgba(74,143,217,0.14)',  ic:'#4a8fd9' },
         ];
         const ENDURANCE = [
-            { name:'Cooper 12min', desc:'VO₂ · corrida',       score:2600,  unit:'m',    level:'BOM',   tag:'tag-bom',    barPct:0.52, icon:'running', bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
-            { name:'2km Remo',     desc:'VO₂ · remo',          score:'7:32',unit:'min',  level:'FORTE', tag:'tag-forte',  barPct:0.65, icon:'rowing',  bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
-            { name:'FTP Bike',     desc:'Potência · ciclismo', score:'3.8', unit:'w/kg', level:'SÓLIDO',tag:'tag-solido', barPct:0.78, icon:'bike',    bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
-            { name:'100 Burpees',  desc:'Condicionamento',     score:'8:45',unit:'min',  level:'BOM',   tag:'tag-bom',    barPct:0.52, icon:'burpee',  bg:'rgba(232,122,69,0.14)', ic:'#e87a45' },
+            { name:'Cooper 12min', desc:'VO₂ · corrida',       score: endUser?.type==='cooper'  ? endUser.val : 2600,  unit:'m',    ...(endUser?.type==='cooper'  ? levelTag(aval.scores.endurance) : {level:'BOM',   tag:'tag-bom'}),    barPct: endUser?.type==='cooper'  ? Math.min(1,(parseFloat(endUser.val)||0)/3200) : 0.52, icon:'running', bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
+            { name:'2km Remo',     desc:'VO₂ · remo',          score: endUser?.type==='remo'    ? endUser.val : '7:32', unit:'min',  ...(endUser?.type==='remo'    ? levelTag(aval.scores.endurance) : {level:'FORTE', tag:'tag-forte'}),  barPct: 0.65, icon:'rowing',  bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
+            { name:'FTP Bike',     desc:'Potência · ciclismo', score: endUser?.type==='bike'    ? endUser.val : '3.8',  unit:'w/kg', ...(endUser?.type==='bike'    ? levelTag(aval.scores.endurance) : {level:'SÓLIDO',tag:'tag-solido'}), barPct: 0.78, icon:'bike',    bg:'rgba(74,143,217,0.14)', ic:'#4a8fd9' },
+            { name:'100 Burpees',  desc:'Condicionamento',     score: endUser?.type==='burpees' ? endUser.val : '8:45', unit:'min',  ...(endUser?.type==='burpees' ? levelTag(aval.scores.endurance) : {level:'BOM',   tag:'tag-bom'}),    barPct: 0.52, icon:'burpee',  bg:'rgba(232,122,69,0.14)', ic:'#e87a45' },
         ];
         function TestItem({ t }) {
             return (
@@ -1155,7 +1180,7 @@
         return (
             <div>
                 <div className="page-header pad">
-                    <div className="overline" style={{marginBottom:6}}>AVALIAÇÃO · ÚLTIMO CICLO HÁ 18 DIAS</div>
+                    <div className="overline" style={{marginBottom:6}}>AVALIAÇÃO · {aval ? (() => { const d=Math.floor((Date.now()-new Date(aval.date+'T00:00:00').getTime())/86400000); return d===0?'HOJE':d===1?'HÁ 1 DIA':`HÁ ${d} DIAS`; })() : 'AINDA NÃO FEITA'}</div>
                     <div className="page-title">Testes</div>
                     <div className="page-desc">Sua bateria pessoal. Refaça a cada 8 semanas pra calibrar o plano.</div>
                     <div className="quote-grid">
@@ -1169,10 +1194,10 @@
                         </div>
                     </div>
                     <div className="level-card">
-                        <div className="level-overline">SEU NÍVEL GERAL · TEAM FONTES</div>
-                        <div className="level-title">Avançado</div>
-                        <div className="level-sub">Nível 4 / 6 · hiking bench 112s</div>
-                        <div className="bar-bg"><div className="bar-fill" style={{width:'67%',background:'#18191f'}}/></div>
+                        <div className="level-overline">SEU NÍVEL GERAL · TEAM {profile.lastName.toUpperCase()}</div>
+                        <div className="level-title">{levelName}</div>
+                        <div className="level-sub">Nível {hikingLevel} / 5 · hiking bench {hikingSecs}s</div>
+                        <div className="bar-bg"><div className="bar-fill" style={{width:`${Math.round(levelPct*100)}%`,background:'#18191f'}}/></div>
                     </div>
                     <div className="battery-hdr">
                         <div>
@@ -1985,7 +2010,7 @@
 
                     {/* QUICK LINKS */}
                     {[
-                        {title:'Avaliação inicial', sub:'Refeita em 3 abr',                        action: () => setModal('avaliacao')},
+                        {title:'Avaliação inicial', sub: (() => { const a=getAvaliacao(); if(!a) return 'Ainda não feita'; const d=new Date(a.date+'T00:00:00'); const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return `Feita em ${d.getDate()} ${meses[d.getMonth()]}`; })(), action: () => setModal('avaliacao')},
                         {title:'Modo Regata',       sub: sailingMode ? `${profile.raceName} · ${raceDaysLeft} dias` : 'Desativado', action: () => setModal('modoRegata')},
                         {title:'Chat com coach',    sub:'3 não lidas',                             action: () => {}},
                     ].map((l,i) => (
@@ -2501,7 +2526,10 @@
                     ) : (
                         <button className="aval-btn-next"
                             style={{background:'var(--card-yellow)', color:'var(--text-dark)'}}
-                            onClick={onClose}>GERAR PLANO DE 4 SEMANAS</button>
+                            onClick={() => {
+                                saveAvaliacao({ hikingSecs, plankSecs, emomRounds: emomRounds||0, endType, endDist, mobScores, scores, classe, categoria });
+                                onClose();
+                            }}>GERAR PLANO DE 4 SEMANAS</button>
                     )}
                 </div>
             </div>
