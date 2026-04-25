@@ -676,13 +676,25 @@
 
     /* ── Streak Dots ── */
     function StreakDots({ total = 22 }) {
+        const hist = getHistory();
+        const doneSet = new Set(hist.map(e => e.date));
+        const today = new Date().toLocaleDateString('sv');
+        const dots = Array.from({length: total}, (_, i) => {
+            const daysAgo = total - 1 - i;
+            const d = new Date();
+            d.setDate(d.getDate() - daysAgo);
+            const dateStr = d.toLocaleDateString('sv');
+            const isToday = dateStr === today;
+            const done = doneSet.has(dateStr);
+            return { isToday, done };
+        });
         return (
             <div>
                 <div className="dots-row">
-                    {Array.from({length: total}).map((_,i) => (
+                    {dots.map(({isToday, done}, i) => (
                         <div key={i} className="dot" style={{
-                            width: i===total-1?8:6, height: i===total-1?8:6,
-                            background: i===total-1 ? '#e87a45' : `rgba(245,240,232,${0.2+(i/total)*0.6})`,
+                            width: isToday ? 8 : 6, height: isToday ? 8 : 6,
+                            background: done ? '#e87a45' : isToday ? 'rgba(245,240,232,0.5)' : 'rgba(245,240,232,0.15)',
                         }}/>
                     ))}
                 </div>
@@ -697,12 +709,14 @@
     /* ── Activity Heatmap ── */
     function Heatmap({ weeks = 38 }) {
         const data = useMemo(() => {
+            const hist = getHistory();
+            const doneSet = new Set(hist.map(e => e.date));
             const days = weeks * 7;
             return Array.from({length: days}, (_, i) => {
                 const daysAgo = days - 1 - i;
-                if (daysAgo < 247) return Math.random() < 0.82 ? 2 : 1;
-                const r = Math.random();
-                return r < 0.55 ? 2 : r < 0.68 ? 1 : 0;
+                const d = new Date();
+                d.setDate(d.getDate() - daysAgo);
+                return doneSet.has(d.toLocaleDateString('sv')) ? 2 : 0;
             });
         }, [weeks]);
 
@@ -745,12 +759,87 @@
     function clearSessionState() {
         localStorage.removeItem('regata_session');
     }
+    const PROFILE_DEFAULTS = {
+        firstName: 'Bruno', lastName: 'Fontes',
+        raceName: 'Brasileiro Laser', raceDate: '2026-05-06', raceLocation: 'Ilhabela',
+    };
+    function getProfile() {
+        try {
+            const p = JSON.parse(localStorage.getItem('regata_profile') || 'null');
+            return p ? { ...PROFILE_DEFAULTS, ...p } : PROFILE_DEFAULTS;
+        } catch { return PROFILE_DEFAULTS; }
+    }
+    function saveProfile(patch) {
+        try {
+            const cur = getProfile();
+            localStorage.setItem('regata_profile', JSON.stringify({ ...cur, ...patch }));
+        } catch { /* storage unavailable */ }
+    }
+    function getRaceDaysLeft(raceDate) {
+        const race = new Date(raceDate + 'T00:00:00');
+        const today = new Date(); today.setHours(0,0,0,0);
+        return Math.ceil((race - today) / 86400000);
+    }
+    function getGreeting() {
+        const h = new Date().getHours();
+        if (h < 12) return 'BOM DIA';
+        if (h < 18) return 'BOA TARDE';
+        return 'BOA NOITE';
+    }
+    function getTodayLabel() {
+        const d = new Date();
+        const dias  = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+        const meses = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+        return `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]}`;
+    }
+    function getPlanStart() {
+        try {
+            const s = localStorage.getItem('regata_plan_start');
+            if (s) return s;
+            const today = new Date().toLocaleDateString('sv');
+            localStorage.setItem('regata_plan_start', today);
+            return today;
+        } catch { return new Date().toLocaleDateString('sv'); }
+    }
+    function getWeekIdx() {
+        const start = new Date(getPlanStart() + 'T00:00:00');
+        const diffDays = Math.floor((Date.now() - start.getTime()) / 86400000);
+        return Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), 4);
+    }
+    function getHistory() {
+        try { return JSON.parse(localStorage.getItem('regata_history') || '[]'); } catch { return []; }
+    }
+    function saveToHistory(entry) {
+        try {
+            const hist = getHistory().filter(e => e.date !== entry.date);
+            hist.push(entry);
+            hist.sort((a, b) => a.date.localeCompare(b.date));
+            localStorage.setItem('regata_history', JSON.stringify(hist.slice(-90)));
+        } catch { /* storage unavailable */ }
+    }
+    function getStreak() {
+        try {
+            const s = JSON.parse(localStorage.getItem('regata_streak') || 'null');
+            return s || { count: 247, lastDate: null };
+        } catch { return { count: 247, lastDate: null }; }
+    }
+    function updateStreak() {
+        try {
+            const today = new Date().toLocaleDateString('sv');
+            const s = getStreak();
+            if (s.lastDate === today) return s;
+            const updated = { count: s.count + 1, lastDate: today };
+            localStorage.setItem('regata_streak', JSON.stringify(updated));
+            return updated;
+        } catch { return getStreak(); }
+    }
     /* ── end helpers ── */
 
     function TelaHoje({ setModal, sailingMode, openSession }) {
-        const WEEK_IDX = 1; // hardcoded — derive from user progress state in future
-        const todayDay = PLAN_WEEKS[WEEK_IDX - 1].days[TODAY_IDX];
+        const WEEK_IDX = getWeekIdx();
+        const todayDay = (PLAN_WEEKS[WEEK_IDX - 1] || PLAN_WEEKS[0]).days[TODAY_IDX];
         const isRest   = todayDay.type === 'descanso';
+        const streak   = getStreak();
         const sess     = getSessionState();
         const sessStatus = isRest ? 'rest'
                          : sess && sess.completed ? 'done'
@@ -765,13 +854,15 @@
             : 0;
         const totalMs = sess && sess.totalMs ? sess.totalMs : 0;
         const totalMin = Math.floor(totalMs / 60000);
+        const profile = getProfile();
+        const raceDaysLeft = getRaceDaysLeft(profile.raceDate);
         return (
             <div>
                 <div className="hoje-header">
-                    <div className="overline" style={{marginBottom:6}}>BOA NOITE · SEG 21 ABR</div>
+                    <div className="overline" style={{marginBottom:6}}>{getGreeting()} · {getTodayLabel()}</div>
                     <div className="hoje-row">
                         <div>
-                            <div className="hoje-name">Olá, Bruno.</div>
+                            <div className="hoje-name">Olá, {profile.firstName}.</div>
                             <div className="hoje-mood">Mar calmo.</div>
                         </div>
                         <div className="top-actions">
@@ -816,8 +907,8 @@
                         <div className="icon-box icon-box-coral"><SailIcon/></div>
                         <div className="readiness-body">
                             <div className="card-label">MODO REGATA · ATIVO</div>
-                            <div className="card-title-serif">Brasileiro Laser</div>
-                            <div className="card-sub">em 12 dias · taper sábado</div>
+                            <div className="card-title-serif">{profile.raceName}</div>
+                            <div className="card-sub">em {raceDaysLeft} dias · {profile.raceLocation}</div>
                         </div>
                         <div className="chevron">›</div>
                     </div>}
@@ -838,7 +929,7 @@
                             <div style={{color:'rgba(245,240,232,0.28)',fontSize:16}}>›</div>
                         </div>
                         <div className="streak-num-row">
-                            <div className="streak-num">247</div>
+                            <div className="streak-num">{streak.count}</div>
                             <div className="streak-dias">DIAS</div>
                         </div>
                         <div className="streak-motto">sem soltar a corda.</div>
@@ -891,11 +982,13 @@
                     )}
                 </div>
 
-                {/* ── INICIAR SESSÃO bar ── */}
+                {/* ── INICIAR SESSÃO bar — só aparece quando sessão não iniciada ── */}
+                {sessStatus === 'idle' && (
                 <div className="iniciar-sessao-bar" onClick={() => openSession?.({ day: todayDay, weekIdx: WEEK_IDX })}>
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 2L10 6L3 10V2Z" fill="#fff"/></svg>
                     <span className="iniciar-sessao-txt">Iniciar Sessão</span>
                 </div>
+                )}
 
                 {/* ── OS 5 PILARES ── */}
                 <div className="section-block">
@@ -931,7 +1024,7 @@
                             <text x="36" y="46" textAnchor="middle" fontFamily="DM Sans, sans-serif" fontSize="8" fontWeight="600" letterSpacing="1" fill="#6b6b77">CARGA</text>
                         </svg>
                         <div className="carga-info">
-                            <div className="overline" style={{marginBottom:4}}>SEMANA 15</div>
+                            <div className="overline" style={{marginBottom:4}}>SEMANA {WEEK_IDX}</div>
                             <div className="carga-title">Carga ótima. Siga o plano.</div>
                             <div className="carga-sub" style={{marginTop:6}}>REC 84% · SONO 7.4h · FC 54</div>
                         </div>
@@ -941,7 +1034,7 @@
                 {/* ── CONDIÇÕES ── */}
                 <div className="card-condicoes">
                     <div className="cond-header">
-                        <div className="cond-title">CONDIÇÕES · ILHABELA</div>
+                        <div className="cond-title">CONDIÇÕES · {profile.raceLocation.toUpperCase()}</div>
                         <div className="cond-time">14:00 · T+03</div>
                     </div>
                     <div className="cond-grid">
@@ -1483,6 +1576,13 @@
             clearInterval(timerRef.current);
             const totalMs = Date.now() - startedAtRef.current;
             saveSessionState({ completed: true, totalMs, doneIds });
+            updateStreak();
+            saveToHistory({
+                date: new Date().toLocaleDateString('sv'),
+                weekIdx: session ? session.weekIdx : 1,
+                dayType: session ? session.day.type : '',
+                totalMs,
+            });
             onClose();
         }
 
@@ -1579,6 +1679,14 @@
     }
 
     function TelaWeDonotStop({ onClose }) {
+        const streak = getStreak();
+        const history = getHistory();
+        const planStart = getPlanStart();
+        const planStartFormatted = (() => {
+            const d = new Date(planStart + 'T00:00:00');
+            const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+            return `${d.getDate()} ${meses[d.getMonth()]} ${d.getFullYear()}`;
+        })();
         return (
             <div className="overlay">
                 <div className="overlay-topbar">
@@ -1594,9 +1702,9 @@
                     </div>
                 </div>
                 <div className="wds-hero">
-                    <div className="wds-big">247</div>
+                    <div className="wds-big">{streak.count}</div>
                     <div className="wds-subtitle">dias sem soltar a corda.</div>
-                    <div className="wds-since">Início em 17 ago 2025. Seu recorde anterior foi de 58 dias.</div>
+                    <div className="wds-since">{`Início em ${planStartFormatted}. Seu recorde anterior foi de 58 dias.`}</div>
                 </div>
                 <div className="heatmap-section">
                     <div className="heatmap-label">ÚLTIMOS 12 MESES</div>
@@ -1619,9 +1727,9 @@
                 </div>
                 <div className="wds-stats-grid">
                     {[
-                        {label:'RECORDE ATUAL', num:'247', fill:1,    color:'#c84b38'},
+                        {label:'RECORDE ATUAL', num:String(streak.count), fill:1, color:'#c84b38'},
                         {label:'ANTERIOR',      num:'58',  fill:0.24, color:'rgba(245,240,232,0.3)'},
-                        {label:'PLENOS',        num:'219', fill:0.88, color:'#c84b38'},
+                        {label:'PLENOS', num:String(history.length), fill: history.length > 0 ? Math.min(history.length / streak.count, 1) : 0, color:'#c84b38'},
                         {label:'MÍNIMOS',       num:'30',  fill:0.12, color:'#f0c52e'},
                     ].map((s,i) => (
                         <div key={i} className="wds-stat-card">
@@ -1808,6 +1916,16 @@
     }
 
     function TelaPerfil({ setModal, sailingMode, setSailingMode }) {
+        const [profile, setProfile] = React.useState(getProfile);
+        const [editing, setEditing] = React.useState(false);
+        const [draft, setDraft] = React.useState(null);
+        const raceDaysLeft = getRaceDaysLeft(profile.raceDate);
+
+        function startEdit() { setDraft({...profile}); setEditing(true); }
+        function cancelEdit() { setEditing(false); setDraft(null); }
+        function saveEdit() { saveProfile(draft); setProfile(getProfile()); setEditing(false); setDraft(null); }
+        function set(k, v) { setDraft(d => ({...d, [k]: v})); }
+
         const INTEGR_DOTS = [
             {l:'W', bg:'#25a244'},
             {l:'G', bg:'#3d6bc8'},
@@ -1816,8 +1934,13 @@
         return (
             <div className="perf-wrap">
                 <div className="perf-header">
-                    <div className="perf-team">TEAM FONTES · {sailingMode ? 'VELA' : 'COMPLETO'}</div>
-                    <div className="perf-name">Bruno Fontes</div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                        <div>
+                            <div className="perf-team">TEAM {profile.lastName.toUpperCase()} · {sailingMode ? 'VELA' : 'COMPLETO'}</div>
+                            <div className="perf-name">{profile.firstName} {profile.lastName}</div>
+                        </div>
+                        <button onClick={startEdit} style={{marginTop:8,background:'rgba(24,25,31,0.07)',border:'none',borderRadius:20,padding:'6px 14px',fontSize:11,fontWeight:600,letterSpacing:0.5,cursor:'pointer',color:'var(--text-dark)'}}>EDITAR</button>
+                    </div>
                 </div>
                 <div className="perf-cards">
                     {/* SEU PLANO */}
@@ -1863,7 +1986,7 @@
                     {/* QUICK LINKS */}
                     {[
                         {title:'Avaliação inicial', sub:'Refeita em 3 abr',                        action: () => setModal('avaliacao')},
-                        {title:'Modo Regata',       sub: sailingMode ? 'Brasileiro Laser · 12 dias' : 'Desativado', action: () => setModal('modoRegata')},
+                        {title:'Modo Regata',       sub: sailingMode ? `${profile.raceName} · ${raceDaysLeft} dias` : 'Desativado', action: () => setModal('modoRegata')},
                         {title:'Chat com coach',    sub:'3 não lidas',                             action: () => {}},
                     ].map((l,i) => (
                         <div key={i} className="perf-link" onClick={l.action}>
@@ -1875,6 +1998,35 @@
                         </div>
                     ))}
                 </div>
+                {/* ── Modal de edição de perfil ── */}
+                {editing && draft && (
+                    <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'flex-end'}}>
+                        <div style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'28px 20px 40px',width:'100%',maxHeight:'85vh',overflowY:'auto'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+                                <div style={{fontSize:13,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:'var(--text-dark)'}}>Editar perfil</div>
+                                <button onClick={cancelEdit} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'var(--text-dark)',lineHeight:1}}>×</button>
+                            </div>
+                            {[
+                                {label:'NOME',           key:'firstName',    type:'text'},
+                                {label:'SOBRENOME',      key:'lastName',     type:'text'},
+                                {label:'PRÓXIMA REGATA', key:'raceName',     type:'text'},
+                                {label:'DATA DA REGATA', key:'raceDate',     type:'date'},
+                                {label:'LOCAL',          key:'raceLocation', type:'text'},
+                            ].map(f => (
+                                <div key={f.key} style={{marginBottom:18}}>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:6}}>{f.label}</div>
+                                    <input
+                                        type={f.type}
+                                        value={draft[f.key] || ''}
+                                        onChange={e => set(f.key, e.target.value)}
+                                        style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,fontWeight:500,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}
+                                    />
+                                </div>
+                            ))}
+                            <button onClick={saveEdit} style={{width:'100%',padding:14,background:'var(--text-dark)',color:'#fff',border:'none',borderRadius:50,fontSize:13,fontWeight:700,letterSpacing:0.5,cursor:'pointer',marginTop:8}}>SALVAR</button>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
@@ -2480,7 +2632,7 @@
     };
 
     function TelaSessaoDetalhe({ session, dayLabel, weekName, onBack }) {
-        const b = PLAN_BADGE[session.type];
+        const b = (PLAN_BADGE[session.type] || PLAN_BADGE['forca']);
         const sections = SESSION_TEMPLATES[session.type] || [];
         return (
             <div className="sd-wrap">
@@ -2534,7 +2686,7 @@
     }
 
     function TelaPlano() {
-        const [week, setWeek] = useState(1);
+        const [week, setWeek] = useState(getWeekIdx);
         const [selected, setSelected] = useState(null);
         const w = PLAN_WEEKS.find(x => x.id === week);
 
