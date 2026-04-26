@@ -2219,14 +2219,26 @@
 
     /* ══════════════════════ AVALIAÇÃO ══════════════════════ */
     function TelaAvaliacao({ onClose }) {
-        const TOTAL = 8;
         const [step, setStep] = useState(1);
 
         // Step 1: Quem é você
-        const [classe, setClasse] = useState(null);
+        const [esporte, setEsporte]     = useState(null);
+        const [tipoBarco, setTipoBarco] = useState(null);
+        const [classe, setClasse]       = useState(null);
         const [categoria, setCategoria] = useState(null);
-        const [idade, setIdade] = useState(30);
+        const [idade, setIdade]         = useState(30);
         const [velejando, setVelejando] = useState(5);
+
+        const includeHiking = esporte === 'velejador' && tipoBarco === 'hiking';
+        const TOTAL = includeHiking ? 8 : 7;
+
+        function stepContent(s) {
+            if (s <= 2) return ['perfil','contexto'][s-1];
+            const seq = includeHiking
+                ? ['hiking','core','forca','endurance','mobilidade','resultado']
+                : ['core','forca','endurance','mobilidade','resultado'];
+            return seq[s-3] || 'resultado';
+        }
 
         // Step 2: Contexto
         const [objetivo, setObjetivo] = useState(null);
@@ -2292,7 +2304,7 @@
         }
 
         const scores = useMemo(() => {
-            const hiking    = Math.min(100, Math.round(hikingSecs/240*100));
+            const hiking    = includeHiking ? Math.min(100, Math.round(hikingSecs/240*100)) : 0;
             const core      = Math.min(100, Math.round(plankSecs/180*100));
             let endurance = 0;
             const ev = parseFloat(endDist)||0;
@@ -2307,38 +2319,79 @@
             const squatScore = squatReps != null ? Math.min(100, Math.round(squatReps/55*100)) : 0;
             const forca = Math.round((pushScore + pullScore + squatScore) / 3);
             return { hiking, core, forca, endurance, mobilidade };
-        }, [hikingSecs, plankSecs, endType, endDist, mobScores, pushReps, pullReps, squatReps]);
+        }, [includeHiking, hikingSecs, plankSecs, endType, endDist, mobScores, pushReps, pullReps, squatReps]);
 
         const canNext = () => {
-            if (step===1) return classe!==null && categoria!==null;
+            if (step===1) {
+                if (!esporte) return false;
+                if (esporte === 'velejador') return tipoBarco !== null;
+                return true;
+            }
             if (step===2) return objetivo!==null;
-            if (step===3) return hikingSecs>0;
-            if (step===4) return plankSecs > 0;
-            if (step===5) return pushReps !== null && pullReps !== null && squatReps !== null;
-            if (step===6) return endDist.trim()!=='';
-            if (step===7) return Object.values(mobScores).every(v=>v!==null);
+            const sc = stepContent(step);
+            if (sc==='hiking')     return hikingSecs>0;
+            if (sc==='core')       return plankSecs > 0;
+            if (sc==='forca')      return pushReps !== null && pullReps !== null && squatReps !== null;
+            if (sc==='endurance')  return endDist.trim()!=='';
+            if (sc==='mobilidade') return Object.values(mobScores).every(v=>v!==null);
             return true;
         };
 
         function renderQuemVoce() {
-            const classes = ['49er / FX', 'Nacra 17', 'Laser / ILCA', '470', 'Snipe', 'Oceânico'];
+            const esportes = [
+                {id:'velejador', l:'Velejador'},
+                {id:'corredor',  l:'Corredor'},
+                {id:'crossfit',  l:'Crossfit'},
+                {id:'remo',      l:'Remador'},
+                {id:'triatleta', l:'Triatleta'},
+                {id:'ciclista',  l:'Ciclista'},
+                {id:'outro',     l:'Outro'},
+            ];
+            const hikingBoats    = ['Laser / ILCA', '470', 'Snipe', '420', 'Optimist'];
+            const noHikingBoats  = ['49er / FX', 'Nacra 17', 'Oceânico'];
+            const boatList = tipoBarco === 'hiking' ? hikingBoats : tipoBarco === 'sem-hiking' ? noHikingBoats : [...hikingBoats, ...noHikingBoats];
             const cats = ['Adulto', 'Máster +35', 'Júnior -18'];
             return (<>
                 <div className="aval-step-tag">QUEM É VOCÊ</div>
-                <div className="aval-title">Seu perfil de velejador</div>
-                <div className="aval-desc">Vamos personalizar tudo com base na sua classe e experiência.</div>
-                <div className="aval-label">CLASSE</div>
+                <div className="aval-title">Seu perfil</div>
+                <div className="aval-desc">Vamos personalizar tudo com base no seu esporte e experiência.</div>
+                <div className="aval-label">ESPORTE / ATIVIDADE</div>
                 <div className="aval-pills">
-                    {classes.map(c => (
-                        <button key={c} className={`aval-pill${classe===c?' aval-pill-on':''}`} onClick={() => setClasse(c)}>{c}</button>
+                    {esportes.map(e => (
+                        <button key={e.id} className={`aval-pill${esporte===e.id?' aval-pill-on':''}`}
+                            onClick={() => { setEsporte(e.id); if (e.id !== 'velejador') { setTipoBarco(null); setClasse(null); setCategoria(null); } }}>
+                            {e.l}
+                        </button>
                     ))}
                 </div>
-                <div className="aval-label">CATEGORIA</div>
-                <div className="aval-pills">
-                    {cats.map(c => (
-                        <button key={c} className={`aval-pill${categoria===c?' aval-pill-on':''}`} onClick={() => setCategoria(c)}>{c}</button>
-                    ))}
-                </div>
+                {esporte === 'velejador' && (<>
+                    <div className="aval-label">TIPO DE BARCO</div>
+                    <div style={{display:'flex', gap:10, marginBottom:4}}>
+                        {[
+                            {id:'hiking',     l:'Com hiking',  sub:'ILCA · 470 · Snipe · Optimist'},
+                            {id:'sem-hiking', l:'Sem hiking',  sub:'49er · Nacra · Oceânico'},
+                        ].map(t => (
+                            <button key={t.id}
+                                onClick={() => { setTipoBarco(t.id); setClasse(null); }}
+                                style={{flex:1, padding:'12px 10px', borderRadius:12, border:`2px solid ${tipoBarco===t.id?'#18191f':'rgba(24,25,31,0.12)'}`, background:tipoBarco===t.id?'#18191f':'#fff', color:tipoBarco===t.id?'#f5f0e8':'#18191f', cursor:'pointer', textAlign:'left'}}>
+                                <div style={{fontSize:13, fontWeight:600, marginBottom:3}}>{t.l}</div>
+                                <div style={{fontSize:10, opacity:0.55, fontWeight:400}}>{t.sub}</div>
+                            </button>
+                        ))}
+                    </div>
+                    <div className="aval-label">CLASSE</div>
+                    <div className="aval-pills">
+                        {boatList.map(c => (
+                            <button key={c} className={`aval-pill${classe===c?' aval-pill-on':''}`} onClick={() => setClasse(c)}>{c}</button>
+                        ))}
+                    </div>
+                    <div className="aval-label">CATEGORIA</div>
+                    <div className="aval-pills">
+                        {cats.map(c => (
+                            <button key={c} className={`aval-pill${categoria===c?' aval-pill-on':''}`} onClick={() => setCategoria(c)}>{c}</button>
+                        ))}
+                    </div>
+                </>)}
                 <div className="aval-label">PERFIL</div>
                 <div className="aval-num-boxes">
                     <div className="aval-num-box">
@@ -2352,17 +2405,19 @@
                             <button onClick={() => setIdade(v => Math.min(80,v+1))}>+</button>
                         </div>
                     </div>
-                    <div className="aval-num-box">
-                        <div className="aval-num-unit-top">VELEJANDO HÁ</div>
-                        <div className="aval-num-row">
-                            <div className="aval-num-val">{velejando}</div>
-                            <div className="aval-num-unit">anos</div>
+                    {esporte === 'velejador' && (
+                        <div className="aval-num-box">
+                            <div className="aval-num-unit-top">VELEJANDO HÁ</div>
+                            <div className="aval-num-row">
+                                <div className="aval-num-val">{velejando}</div>
+                                <div className="aval-num-unit">anos</div>
+                            </div>
+                            <div className="aval-num-stepper">
+                                <button onClick={() => setVelejando(v => Math.max(0,v-1))}>−</button>
+                                <button onClick={() => setVelejando(v => Math.min(50,v+1))}>+</button>
+                            </div>
                         </div>
-                        <div className="aval-num-stepper">
-                            <button onClick={() => setVelejando(v => Math.max(0,v-1))}>−</button>
-                            <button onClick={() => setVelejando(v => Math.min(50,v+1))}>+</button>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </>);
         }
@@ -2626,13 +2681,13 @@
         }
 
         function renderResultado() {
-            const vals = Object.values(scores);
-            const avg = Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+            const activeScores = includeHiking ? Object.values(scores) : [scores.core, scores.forca, scores.endurance, scores.mobilidade];
+            const avg = Math.round(activeScores.reduce((a,b)=>a+b,0)/activeScores.length);
             const hikingLevel = hikingSecs>=240?5:hikingSecs>=180?4:hikingSecs>=120?3:hikingSecs>=60?2:1;
             const hikingLevelName = ['Iniciante','Intermediário','Avançado','Elite','World Class'][hikingLevel-1];
             const archetype = avg>=65?'Regatista':avg>=50?'Atleta':'Iniciante';
             const pillars = [
-                {k:'hiking',     l:'Hiking',    c:'#e87a45'},
+                ...(includeHiking ? [{k:'hiking', l:'Hiking', c:'#e87a45'}] : []),
                 {k:'core',       l:'Core',      c:'#9b7dd4'},
                 {k:'forca',      l:'Força',     c:'#c84b38'},
                 {k:'endurance',  l:'Endurance', c:'#2d6b4f'},
@@ -2647,6 +2702,7 @@
             return (<>
                 <div className="aval-step-tag">SEU RESULTADO</div>
                 <div className="aval-title" style={{marginBottom:16}}>Nível identificado.</div>
+                {includeHiking && (
                 <div style={{background:'var(--card-cream)', borderRadius:16, padding:'20px', marginBottom:20, border:'1px solid rgba(24,25,31,0.08)'}}>
                     <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.6px', textTransform:'uppercase', color:'var(--card-coral)', marginBottom:8}}>
                         HIKING BENCH · NÍVEL {hikingLevel}
@@ -2658,6 +2714,20 @@
                         {hikingSecs}s mantidos em postura correta. Você entra no programa como <strong>{archetype}</strong> — estrutura completa 4 semanas.
                     </div>
                 </div>
+                )}
+                {!includeHiking && (
+                <div style={{background:'var(--card-cream)', borderRadius:16, padding:'20px', marginBottom:20, border:'1px solid rgba(24,25,31,0.08)'}}>
+                    <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.6px', textTransform:'uppercase', color:'var(--card-coral)', marginBottom:8}}>
+                        PERFIL · {esporte?.toUpperCase()}
+                    </div>
+                    <div style={{fontFamily:'var(--font-display)', fontSize:52, fontWeight:600, color:'var(--text-dark)', lineHeight:1, marginBottom:10}}>
+                        {archetype}
+                    </div>
+                    <div style={{fontSize:13, color:'rgba(24,25,31,0.6)', lineHeight:1.55}}>
+                        Você entra no programa como <strong>{archetype}</strong> — estrutura completa 4 semanas.
+                    </div>
+                </div>
+                )}
                 <div className="cycle-lbl">SEU PERFIL POR PILAR</div>
                 <div className="pillar-grid">
                     {pillars.map(p => (
@@ -2712,28 +2782,28 @@
                 <div className="aval-content">
                     {step===1&&renderQuemVoce()}
                     {step===2&&renderContexto()}
-                    {step===3&&renderHiking()}
-                    {step===4&&renderCore()}
-                    {step===5&&renderForca()}
-                    {step===6&&renderEndurance()}
-                    {step===7&&renderMobilidade()}
-                    {step===8&&renderResultado()}
+                    {stepContent(step)==='hiking'&&renderHiking()}
+                    {stepContent(step)==='core'&&renderCore()}
+                    {stepContent(step)==='forca'&&renderForca()}
+                    {stepContent(step)==='endurance'&&renderEndurance()}
+                    {stepContent(step)==='mobilidade'&&renderMobilidade()}
+                    {stepContent(step)==='resultado'&&renderResultado()}
                 </div>
                 <div className="aval-footer">
                     <button className="aval-btn-back"
                         onClick={step===1 ? onClose : () => setStep(s=>s-1)}>
                         {step===1 ? 'Sair' : 'Voltar'}
                     </button>
-                    {step<8 ? (
+                    {step<TOTAL ? (
                         <button className="aval-btn-next" style={{opacity:canNext()?1:0.38}}
                             onClick={() => canNext()&&setStep(s=>s+1)}>
-                            {step===7?'Ver Resultado':'Continuar →'}
+                            {step===TOTAL-1?'Ver Resultado':'Continuar →'}
                         </button>
                     ) : (
                         <button className="aval-btn-next"
                             style={{background:'var(--card-yellow)', color:'var(--text-dark)'}}
                             onClick={() => {
-                                saveAvaliacao({ hikingSecs, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria });
+                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria });
                                 onClose();
                             }}>GERAR PLANO DE 4 SEMANAS</button>
                     )}
