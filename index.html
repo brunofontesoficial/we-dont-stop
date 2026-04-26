@@ -2020,8 +2020,11 @@
 
         const allExercises = React.useMemo(() =>
             sections.flatMap((sec, si) =>
-                sec.items.map((item, ii) => ({ id:`s${si}-i${ii}`, section:sec.title, color:sec.color, ...item }))
-            ), [sections]);
+                sec.items.map((item, ii) => {
+                    const id = `s${si}-i${ii}`;
+                    return { id, section:sec.title, color:sec.color, ...item, ...(swapped[id]||{}) };
+                })
+            ), [sections, swapped]);
 
         const today = new Date().toLocaleDateString('sv');
 
@@ -2031,9 +2034,11 @@
         const [restLeft,  setRestLeft]  = React.useState(0);
         const [restTotal, setRestTotal] = React.useState(0);
 
-        const [showRPE,  setShowRPE]  = React.useState(false);
-        const [rpeScore, setRpeScore] = React.useState(0);
-        const [rpeNote,  setRpeNote]  = React.useState('');
+        const [showRPE,    setShowRPE]    = React.useState(false);
+        const [rpeScore,   setRpeScore]   = React.useState(0);
+        const [rpeNote,    setRpeNote]    = React.useState('');
+        const [swapTarget, setSwapTarget] = React.useState(null); // { id, name, section }
+        const [swapped,    setSwapped]    = React.useState({});   // { id: {name,detail} }
         const globalRef    = React.useRef(null);
         const restRef      = React.useRef(null);
         const startedAtRef = React.useRef(null);
@@ -2178,7 +2183,13 @@
                                 <div style={{marginBottom:12,marginTop:4}}>
                                     {/* Focus card */}
                                     <div style={{background:`${currentEx.color}10`,border:`1.5px solid ${currentEx.color}35`,borderRadius:18,padding:'22px 20px',marginBottom:10}}>
-                                        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:currentEx.color,marginBottom:10,textTransform:'uppercase'}}>{currentEx.section}</div>
+                                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:currentEx.color,textTransform:'uppercase'}}>{currentEx.section}</div>
+                                            <button onClick={() => setSwapTarget(currentEx)}
+                                                style={{fontSize:10,fontWeight:600,color:'rgba(245,240,232,0.4)',background:'rgba(245,240,232,0.07)',border:'none',borderRadius:20,padding:'4px 10px',cursor:'pointer',letterSpacing:'0.5px'}}>
+                                                ↔ TROCAR
+                                            </button>
+                                        </div>
                                         <div style={{fontFamily:'var(--font-display)',fontSize:26,fontWeight:600,color:'#f5f0e8',marginBottom:4,lineHeight:1.2}}>{currentEx.name}</div>
                                         <div style={{fontSize:13,color:'rgba(245,240,232,0.48)',marginBottom:6}}>{currentEx.detail}</div>
                                         {currentEx.rest && currentEx.rest !== '—' && (
@@ -2208,8 +2219,14 @@
                                                 <div style={{width:10,height:10,borderRadius:'50%',flexShrink:0,background:done?'#3db87a':'transparent',border:done?'none':'1.5px solid rgba(245,240,232,0.2)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                                                     {done && <svg width="6" height="6" viewBox="0 0 6 6"><path d="M1 3L2.5 4.5L5 2" stroke="white" strokeWidth="1.4" fill="none"/></svg>}
                                                 </div>
-                                                <div style={{fontSize:11,fontWeight:500,color:done?'rgba(245,240,232,0.35)':'rgba(245,240,232,0.65)',textDecoration:done?'line-through':'none',flex:1}}>{item.name}</div>
+                                                <div style={{fontSize:11,fontWeight:500,color:done?'rgba(245,240,232,0.35)':'rgba(245,240,232,0.65)',textDecoration:done?'line-through':'none',flex:1}}>
+                                                    {swapped[id] ? <span style={{color:'#f0c52e'}}>{allExercises.find(e=>e.id===id)?.name||item.name}</span> : item.name}
+                                                </div>
                                                 <div style={{fontSize:9,color:'rgba(245,240,232,0.25)'}}>{item.detail}</div>
+                                                {!done && (
+                                                    <button onClick={() => setSwapTarget(allExercises.find(e=>e.id===id)||{id,...item,section:sec.title})}
+                                                        style={{fontSize:9,color:'rgba(245,240,232,0.25)',background:'none',border:'none',cursor:'pointer',padding:'2px 4px',flexShrink:0}}>↔</button>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -2233,6 +2250,59 @@
                         <button onClick={concluirExercicio} style={{width:'100%',padding:14,background:'#f0c52e',color:'#18191f',border:'none',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.5}}>CONCLUÍDO ✓</button>
                     )}
                 </div>
+
+                {swapTarget && (() => {
+                    const ALTS = {
+                        'Romanian deadlift':      [{name:'Afundo',              detail:'3×12 cada'},{name:'Glute bridge',       detail:'3×15 rep'},{name:'Single-leg deadlift',detail:'3×8 cada'},{name:'Hip thrust',          detail:'3×12 rep'}],
+                        'Push-up':                [{name:'Incline push-up',     detail:'3×15 rep'},{name:'Pike push-up',        detail:'3×10 rep'},{name:'Diamond push-up',    detail:'3×10 rep'},{name:'Floor press',         detail:'3×12 rep'}],
+                        'Barra / inverted row':   [{name:'Dumbbell row',        detail:'3×10 cada'},{name:'Inverted row (mesa)',detail:'3×10 rep'},{name:'Face pull',           detail:'3×15 rep'},{name:'Band pull-apart',     detail:'3×20 rep'}],
+                        'Inverted row':           [{name:'Dumbbell row',        detail:'3×10 cada'},{name:'Band pull-apart',    detail:'3×20 rep'},{name:'Face pull',           detail:'3×15 rep'},{name:'Superman hold',       detail:'3×30s'}],
+                        'Agachamento':            [{name:'Agachamento sumô',    detail:'4×12 rep'},{name:'Lunges',              detail:'3×10 cada'},{name:'Step-up',            detail:'3×12 cada'},{name:'Wall sit',            detail:'3×60s'}],
+                        'Agachamento livre':      [{name:'Goblet squat',        detail:'4×10 rep'},{name:'Agachamento sumô',   detail:'4×12 rep'},{name:'Lunges',              detail:'3×10 cada'},{name:'Bulgarian split squat',detail:'3×10 cada'}],
+                        'Farmer carry':           [{name:'Agachamento sumô',    detail:'3×30s'},{name:'Loaded march',         detail:'3×30m'},{name:'Suitcase carry',       detail:'3×20m cada'},{name:'Dead bug',            detail:'3×10 rep'}],
+                        'Hollow hold':            [{name:'Prancha frontal',     detail:'4×30s'},{name:'Dead bug',             detail:'3×10 rep'},{name:'V-up',               detail:'3×12 rep'},{name:'Flutter kicks',        detail:'3×20 rep'}],
+                        'Dead bug':               [{name:'Bird dog',            detail:'3×10 cada'},{name:'Prancha frontal',   detail:'4×30s'},{name:'Hollow hold',          detail:'4×20s'},{name:'Mountain climbers',    detail:'3×20 rep'}],
+                        'Prancha lateral':        [{name:'Copenhagen plank',    detail:'3×30s'},{name:'Russian twist',        detail:'3×15 rep'},{name:'Side plank + rot.',  detail:'3×10 cada'},{name:'Pallof press',        detail:'3×12 cada'}],
+                        'Prancha frontal':        [{name:'Hollow hold',         detail:'4×20s'},{name:'Dead bug',             detail:'3×10 rep'},{name:'Ab wheel rollout',   detail:'3×8 rep'},{name:'Bear crawl',           detail:'3×20m'}],
+                        'Mountain climbers':      [{name:'Burpees',             detail:'3×10 rep'},{name:'High knees',         detail:'3×30s'},{name:'Flutter kicks',        detail:'3×20 rep'},{name:'Jumping jacks',       detail:'3×30 rep'}],
+                        'Pull-up':                [{name:'Inverted row',        detail:'3×10 rep'},{name:'Band-assisted pull-up',detail:'3×8 rep'},{name:'Dumbbell row',    detail:'3×10 cada'},{name:'TRX row',             detail:'3×12 rep'}],
+                        'Goblet Squat':           [{name:'Agachamento livre',   detail:'4×12 rep'},{name:'Agachamento sumô',  detail:'4×12 rep'},{name:'Lunges',            detail:'3×10 cada'},{name:'Step-up',             detail:'3×12 cada'}],
+                        'Kettlebell swing':       [{name:'Romanian deadlift',   detail:'3×12 rep'},{name:'Hip thrust',        detail:'3×15 rep'},{name:'Box jump',           detail:'4×8 rep'},{name:'Burpees',             detail:'3×10 rep'}],
+                        'Hip thrust':             [{name:'Glute bridge',        detail:'3×20 rep'},{name:'Romanian deadlift', detail:'3×10 rep'},{name:'Step-up',           detail:'3×12 cada'},{name:'Single-leg bridge',   detail:'3×12 cada'}],
+                        'Wall sit':               [{name:'Agachamento',         detail:'4×12 rep'},{name:'Lunges',            detail:'3×10 cada'},{name:'Isometria quádriceps',detail:'2×60s'},{name:'Step-up',             detail:'3×12 cada'}],
+                        'Corrida leve':           [{name:'Caminhada rápida',    detail:'mesmo tempo'},{name:'Bike leve',      detail:'mesmo tempo'},{name:'Polichinelo',       detail:'3×30 rep'},{name:'Pular corda',        detail:'mesmo tempo'}],
+                        'Burpees':                [{name:'Mountain climbers',   detail:'3×20 rep'},{name:'Squat jumps',       detail:'3×12 rep'},{name:'High knees',         detail:'3×30s'},{name:'Polichinelo',         detail:'3×30 rep'}],
+                    };
+                    const alts = ALTS[swapTarget.name] || [
+                        {name:'Polichinelo',      detail:'3×30 rep'},
+                        {name:'Agachamento',      detail:'3×12 rep'},
+                        {name:'Prancha frontal',  detail:'3×30s'},
+                        {name:'Dead bug',         detail:'3×10 rep'},
+                    ];
+                    return (
+                        <div style={{position:'absolute',inset:0,background:'rgba(9,15,30,0.92)',display:'flex',flexDirection:'column',justifyContent:'flex-end',zIndex:9}} onClick={() => setSwapTarget(null)}>
+                            <div style={{background:'#13192b',borderRadius:'20px 20px 0 0',padding:'24px 20px 36px'}} onClick={e => e.stopPropagation()}>
+                                <div style={{width:36,height:3,borderRadius:2,background:'rgba(245,240,232,0.15)',margin:'0 auto 20px'}}/>
+                                <div style={{fontSize:9,fontWeight:700,letterSpacing:'1.6px',color:'rgba(245,240,232,0.35)',marginBottom:4}}>SUBSTITUIR</div>
+                                <div style={{fontSize:17,fontWeight:700,color:'var(--text-cream)',marginBottom:20,lineHeight:1.3}}>{swapTarget.name}</div>
+                                {alts.map((alt, i) => (
+                                    <div key={i} onClick={() => { setSwapped(s => ({...s,[swapTarget.id]:alt})); setSwapTarget(null); }}
+                                        style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',borderRadius:12,background:'rgba(245,240,232,0.05)',marginBottom:8,cursor:'pointer',border:'1px solid rgba(245,240,232,0.07)'}}>
+                                        <div>
+                                            <div style={{fontSize:14,fontWeight:600,color:'var(--text-cream)',marginBottom:2}}>{alt.name}</div>
+                                            <div style={{fontSize:11,color:'rgba(245,240,232,0.35)'}}>{alt.detail}</div>
+                                        </div>
+                                        <div style={{fontSize:18,color:'rgba(245,240,232,0.2)'}}>›</div>
+                                    </div>
+                                ))}
+                                <button onClick={() => setSwapTarget(null)}
+                                    style={{width:'100%',padding:12,marginTop:8,background:'none',border:'1px solid rgba(245,240,232,0.1)',borderRadius:50,fontSize:12,color:'rgba(245,240,232,0.3)',cursor:'pointer'}}>
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {showRPE && (
                     <div style={{position:'absolute',inset:0,background:'rgba(9,15,30,0.97)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',zIndex:10}}>
