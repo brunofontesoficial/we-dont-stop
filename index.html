@@ -2450,6 +2450,57 @@
     }
 
     /* ══════════════════════ AVALIAÇÃO ══════════════════════ */
+
+    const TUTORIAL_VIDEOS = {
+        hiking:  null, // 'https://youtube.com/...'
+        core:    null,
+        pushup:  null,
+        pullup:  null,
+        squat:   null,
+        cooper:  null,
+        remo:    null,
+        bike:    null,
+        burpees: null,
+        mob_quadril:  null,
+        mob_ombro:    null,
+        mob_equil:    null,
+        mob_resp:     null,
+    };
+
+    function VideoCard({ title, videoKey }) {
+        const url = TUTORIAL_VIDEOS[videoKey];
+        function handle() { if (url) window.open(url, '_blank'); }
+        return (
+            <div className="video-card" onClick={handle}
+                style={{opacity: url ? 1 : 0.7, cursor: url ? 'pointer' : 'default'}}>
+                <div className="video-play-btn">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <path d="M5 3L15 9L5 15V3Z" fill="#fff"/>
+                    </svg>
+                </div>
+                <div style={{flex:1}}>
+                    <div className="video-meta">DEMONSTRAÇÃO</div>
+                    <div className="video-title">{title}</div>
+                </div>
+                {!url && <div style={{fontSize:9,fontWeight:700,letterSpacing:1,color:'rgba(245,240,232,0.5)',flexShrink:0}}>EM BREVE</div>}
+            </div>
+        );
+    }
+
+    function TutorialSteps({ steps }) {
+        return (
+            <div style={{background:'rgba(24,25,31,0.04)',borderRadius:12,padding:'14px 16px',marginBottom:20}}>
+                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:10}}>COMO FAZER</div>
+                {steps.map((s,i) => (
+                    <div key={i} style={{display:'flex',gap:10,marginBottom:i<steps.length-1?8:0}}>
+                        <div style={{width:18,height:18,borderRadius:'50%',background:'#18191f',color:'#f5f0e8',fontSize:10,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>{i+1}</div>
+                        <div style={{fontSize:13,color:'rgba(24,25,31,0.7)',lineHeight:1.45}}>{s}</div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
     function TelaAvaliacao({ onClose }) {
         const [step, setStep] = useState(1);
 
@@ -2695,15 +2746,13 @@
                 <div className="aval-step-tag">TESTE 1 · HIKING BENCH</div>
                 <div className="aval-title">Isometria postural</div>
                 <div className="aval-desc">Joelhos a 90°, costas retas, braços cruzados. Segure o máximo possível.</div>
-                <div className="video-card" style={{background:'var(--card-navy)', backgroundImage:'var(--navy-texture)'}}>
-                    <div className="video-play-btn">
-                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 3L15 9L5 15V3Z" fill="#fff"/></svg>
-                    </div>
-                    <div>
-                        <div className="video-meta">DEMONSTRAÇÃO</div>
-                        <div className="video-title">Posição correta de hiking</div>
-                    </div>
-                </div>
+                <VideoCard title="Posição correta de hiking" videoKey="hiking"/>
+                <TutorialSteps steps={[
+                    'Sente na borda de um banco, joelhos a 90°',
+                    'Costas retas, braços cruzados no peito',
+                    'Incline o tronco levemente para frente — posição de hiking',
+                    'Segure o máximo possível sem apoiar as mãos',
+                ]}/>
                 <div className="timer-box" onClick={toggleHiking} style={{cursor:'pointer', userSelect:'none', background: hikingOn ? 'rgba(24,25,31,0.04)' : '#fff'}}>
                     <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.6px', textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>
                         {hikingOn ? 'TOQUE PARA PARAR' : 'TOQUE PARA INICIAR'}
@@ -2737,15 +2786,13 @@
                 <div className="aval-step-tag">TESTE 2 · CORE</div>
                 <div className="aval-title">Plank Frontal</div>
                 <div className="aval-desc">Posição de prancha com antebraços. Mantenha o máximo de tempo possível. Toque para iniciar e parar.</div>
-                <div className="video-card" style={{background:'var(--card-navy)', backgroundImage:'var(--navy-texture)'}}>
-                    <div className="video-play-btn">
-                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 3L15 9L5 15V3Z" fill="#fff"/></svg>
-                    </div>
-                    <div>
-                        <div className="video-meta">DEMONSTRAÇÃO</div>
-                        <div className="video-title">Plank frontal · posição correta</div>
-                    </div>
-                </div>
+                <VideoCard title="Plank frontal · posição correta" videoKey="core"/>
+                <TutorialSteps steps={[
+                    'Antebraços no chão, cotovelos sob os ombros',
+                    'Corpo em linha reta da cabeça ao calcanhar',
+                    'Glúteos contraídos, core ativado — não eleve o quadril',
+                    'Respire normalmente e segure o máximo possível',
+                ]}/>
                 <div className="timer-box" onClick={togglePlank} style={{cursor:'pointer', userSelect:'none', marginBottom:20}}>
                     <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.6px', textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>
                         {plankOn ? 'TOQUE PARA PARAR' : 'TOQUE PARA INICIAR'}
@@ -2769,6 +2816,14 @@
                 {
                     label:'FLEXÃO (PUSH-UP)', desc:'Máximo de repetições contínuas · sem pausa',
                     state:pushReps, set:setPushReps, max:100,
+                    videoKey:'pushup',
+                    videoTitle:'Flexão · técnica e posição',
+                    tutorial:[
+                        'Mãos ligeiramente mais largas que os ombros',
+                        'Desça até o peito quase tocar o chão — cotovelos a 45°',
+                        'Corpo em linha reta — sem afundar o quadril',
+                        'Máximo de repetições contínuas sem pausa',
+                    ],
                     levels:[
                         {name:'Iniciante',     range:'< 15',    min:0,  max:14,  color:'#e87a45'},
                         {name:'Intermediário', range:'15 – 24', min:15, max:24,  color:'#f0c52e'},
@@ -2780,6 +2835,14 @@
                 {
                     label:'BARRA (PULL-UP)', desc:'Máximo de repetições · pegada pronada',
                     state:pullReps, set:setPullReps, max:40,
+                    videoKey:'pullup',
+                    videoTitle:'Barra · pegada e amplitude completa',
+                    tutorial:[
+                        'Pegada pronada (palmas para fora), largura dos ombros',
+                        'Parta com braços totalmente estendidos',
+                        'Suba até o queixo passar da barra',
+                        'Desça completamente antes de cada repetição',
+                    ],
                     levels:[
                         {name:'Iniciante',     range:'< 3',     min:0,  max:2,   color:'#e87a45'},
                         {name:'Intermediário', range:'3 – 6',   min:3,  max:6,   color:'#f0c52e'},
@@ -2791,6 +2854,14 @@
                 {
                     label:'SQUAT JUMP — 1 MIN', desc:'Cronometre 1 minuto · salto completo · registre as repetições',
                     state:squatReps, set:setSquatReps, max:120,
+                    videoKey:'squat',
+                    videoTitle:'Squat jump · técnica de aterrissagem',
+                    tutorial:[
+                        'Pés na largura dos ombros, braços ao longo do corpo',
+                        'Agache a ~90° e salte com força máxima',
+                        'Aterrisse suave com joelhos semiflexionados',
+                        'Cronometre 1 minuto e anote as repetições',
+                    ],
                     levels:[
                         {name:'Iniciante',     range:'< 25',    min:0,  max:24,  color:'#e87a45'},
                         {name:'Intermediário', range:'25 – 34', min:25, max:34,  color:'#f0c52e'},
@@ -2811,6 +2882,8 @@
                         <div key={t.label} style={{marginBottom:28}}>
                             <div className="aval-label">{t.label}</div>
                             <div style={{fontSize:11, color:'rgba(24,25,31,0.5)', marginBottom:12, lineHeight:1.5}}>{t.desc}</div>
+                            <VideoCard title={t.videoTitle} videoKey={t.videoKey}/>
+                            <TutorialSteps steps={t.tutorial}/>
                             <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:12}}>
                                 <div className="aval-num-box" style={{flex:1}}>
                                     <div className="aval-num-unit-top">REPETIÇÕES</div>
@@ -2854,18 +2927,47 @@
                 {id:'bike',    name:'FTP Bike',    unit:'w/kg',   placeholder:'3.8',  numeric:true},
                 {id:'burpees', name:'100 Burpees', unit:'MM:SS',  placeholder:'8:45', numeric:false},
             ];
+            const endTutorials = {
+                cooper:  { title:'Teste de Cooper · 12 minutos', steps:[
+                    'Aqueça por 5 minutos em ritmo leve',
+                    'Corra 12 minutos no maior ritmo que conseguir manter',
+                    'Ao final, meça ou anote a distância percorrida em metros',
+                    'Pista de 400m é o ideal; esteira ou GPS também funcionam',
+                ]},
+                remo:    { title:'2km no ergômetro · pace uniforme', steps:[
+                    'Configure o ergômetro para 2000 metros',
+                    'Largue forte nos primeiros 500m, depois encontre o pace',
+                    'Mantenha ritmo constante — evite explosões e quedas bruscas',
+                    'Registre o tempo final em MM:SS',
+                ]},
+                bike:    { title:'FTP Bike · potência funcional', steps:[
+                    'Aqueça 10 minutos em intensidade moderada',
+                    'Pedale 20 minutos no máximo esforço sustentável',
+                    'Calcule: potência média (W) ÷ peso corporal (kg)',
+                    'Multiplique o resultado por 0,95 para obter o FTP real',
+                ]},
+                burpees: { title:'100 Burpees · máximo de velocidade', steps:[
+                    'Burpee completo: deite, levanta, salto com palmas acima da cabeça',
+                    'Inicie o cronômetro na primeira repetição',
+                    'Mantenha ritmo constante — não queime no começo',
+                    'Registre o tempo total ao completar a 100ª repetição',
+                ]},
+            };
             const et = types.find(t=>t.id===endType);
+            const tut = endTutorials[endType];
             const rpeColors = ['#3db87a','#3db87a','#91c96e','#f0c52e','#f0c52e','#e87a45','#e87a45','#c84b38','#c84b38','#c84b38'];
             return (<>
                 <div className="aval-step-tag">TESTE 3 · ENDURANCE</div>
                 <div className="aval-title">Capacidade aeróbica</div>
                 <div className="aval-desc">Escolha o teste que você realizou.</div>
-                <div className="aval-pills" style={{marginBottom:4}}>
+                <div className="aval-pills" style={{marginBottom:16}}>
                     {types.map(t => (
                         <button key={t.id} className={`aval-pill${endType===t.id?' aval-pill-on':''}`}
                             onClick={() => { setEndType(t.id); setEndDist(''); }}>{t.name}</button>
                     ))}
                 </div>
+                <VideoCard title={tut.title} videoKey={endType}/>
+                <TutorialSteps steps={tut.steps}/>
                 <div className="aval-label">RESULTADO ({et.unit.toUpperCase()})</div>
                 <div className="dist-input-wrap">
                     <input className="dist-input" type={et.numeric?'number':'text'}
