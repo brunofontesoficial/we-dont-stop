@@ -889,7 +889,11 @@
         const raceDaysLeft = getRaceDaysLeft(profile.raceDate);
         const aval = getAvaliacao();
         const avalLevelNames = ['Iniciante','Intermediário','Avançado','Elite','World Class'];
-        const avalLevel = aval ? (aval.hikingSecs>=240?5:aval.hikingSecs>=180?4:aval.hikingSecs>=120?3:aval.hikingSecs>=60?2:1) : 0;
+        const avalHasHiking = aval && aval.esporte === 'velejador' && aval.tipoBarco === 'hiking';
+        const avalLevel = aval ? (avalHasHiking
+            ? (aval.hikingSecs>=240?5:aval.hikingSecs>=180?4:aval.hikingSecs>=120?3:aval.hikingSecs>=60?2:1)
+            : (()=>{ const s=aval.scores; const avg=Math.round((s.core+s.forca+s.endurance+s.mobilidade)/4); return avg>=80?5:avg>=65?4:avg>=50?3:avg>=35?2:1; })()
+        ) : 0;
         const avalLevelName = avalLevel ? avalLevelNames[avalLevel-1] : null;
         const avalDaysAgo = aval ? Math.floor((Date.now()-new Date(aval.date+'T00:00:00').getTime())/86400000) : null;
         const avalWeeksLeft = aval ? Math.max(0, 8 - Math.floor(avalDaysAgo/7)) : null;
@@ -938,8 +942,8 @@
                                 <div className="card-title-serif">{avalLevelName}</div>
                                 <div className="card-sub">
                                     {avalWeeksLeft > 0
-                                        ? `Nível ${avalLevel}/5 · hiking ${aval.hikingSecs}s · refazer em ${avalWeeksLeft} sem.`
-                                        : `Nível ${avalLevel}/5 · hiking ${aval.hikingSecs}s · hora de refazer!`}
+                                        ? `Nível ${avalLevel}/5${avalHasHiking ? ` · hiking ${aval.hikingSecs}s` : ''} · refazer em ${avalWeeksLeft} sem.`
+                                        : `Nível ${avalLevel}/5${avalHasHiking ? ` · hiking ${aval.hikingSecs}s` : ''} · hora de refazer!`}
                                 </div>
                             </div>
                         ) : (
@@ -953,8 +957,9 @@
                     </div>
 
                     {aval && aval.scores && (() => {
+                        const showHiking = aval.esporte === 'velejador' && aval.tipoBarco === 'hiking';
                         const pillars = [
-                            {k:'hiking',     l:'Hiking',     c:'#e87a45'},
+                            ...(showHiking ? [{k:'hiking', l:'Hiking', c:'#e87a45'}] : []),
                             {k:'core',       l:'Core',       c:'#9b7dd4'},
                             {k:'forca',      l:'Força',      c:'#c84b38'},
                             {k:'endurance',  l:'Endurance',  c:'#2d6b4f'},
