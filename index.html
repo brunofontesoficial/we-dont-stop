@@ -1046,6 +1046,49 @@
         );
     }
 
+    function EvolucaoChart({ onClick }) {
+        const hist = getAvaliacaoHistory().filter(h => h.scores);
+        if (hist.length < 2) return null;
+        const pillars = [
+            { k:'core',       label:'Core',       color:'#9b7dd4' },
+            { k:'forca',      label:'Força',      color:'#c84b38' },
+            { k:'endurance',  label:'Endurance',  color:'#2d6b4f' },
+            { k:'mobilidade', label:'Mobilidade', color:'#4a8fd9' },
+        ];
+        const W = 160, H = 36, PAD = 4, n = hist.length;
+        return (
+            <div className="card" style={{padding:'16px 18px', background:'#fff', cursor:'pointer'}} onClick={onClick}>
+                <div style={{width:'100%'}}>
+                    <div className="card-label" style={{marginBottom:12}}>EVOLUÇÃO · {hist.length} AVALIAÇÕES</div>
+                    {pillars.map(p => {
+                        const vals = hist.map(h => h.scores[p.k] ?? 0);
+                        const pts  = vals.map((v,i) => {
+                            const x = PAD + (n > 1 ? (i/(n-1)) : 0.5) * (W - 2*PAD);
+                            const y = H - PAD - (v/100) * (H - 2*PAD);
+                            return `${x.toFixed(1)},${y.toFixed(1)}`;
+                        }).join(' ');
+                        const last  = vals[vals.length - 1];
+                        const delta = last - vals[0];
+                        const [lx, ly] = pts.split(' ').pop().split(',');
+                        return (
+                            <div key={p.k} style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                                <div style={{width:72,fontSize:10,fontWeight:600,color:'rgba(24,25,31,0.45)',letterSpacing:'0.4px',textTransform:'uppercase',flexShrink:0}}>{p.label}</div>
+                                <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{flex:1}}>
+                                    <polyline points={pts} fill="none" stroke={p.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.85"/>
+                                    <circle cx={lx} cy={ly} r="3.5" fill={p.color}/>
+                                </svg>
+                                <div style={{width:40,textAlign:'right',flexShrink:0}}>
+                                    <span style={{fontSize:13,fontWeight:700,color:'var(--text-dark)'}}>{last}</span>
+                                    {delta !== 0 && <span style={{fontSize:9,marginLeft:3,color:delta>0?'#3db87a':'#c84b38'}}>{delta>0?'+':''}{delta}</span>}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    }
+
     function TelaHoje({ setModal, sailingMode, openSession }) {
         const WEEK_IDX = getWeekIdx();
         const todayDay = (PLAN_WEEKS[WEEK_IDX - 1] || PLAN_WEEKS[0]).days[TODAY_IDX];
@@ -1184,6 +1227,8 @@
                         );
                     })()}
 
+                    <EvolucaoChart onClick={() => setModal('avaliacao')}/>
+
                     {sailingMode && <div className="card card-regata" onClick={() => setModal('modoRegata')}>
                         <div className="icon-box icon-box-coral"><SailIcon/></div>
                         <div className="readiness-body">
@@ -1216,6 +1261,38 @@
                         <div className="streak-motto">sem soltar a corda.</div>
                         <StreakDots total={22}/>
                     </div>
+
+                    {(() => {
+                        const hist = getHistory();
+                        const last = hist[hist.length - 1];
+                        if (!last) return null;
+                        const daysAgo = Math.floor((Date.now() - new Date(last.date+'T00:00:00').getTime()) / 86400000);
+                        const when = daysAgo === 0 ? 'HOJE' : daysAgo === 1 ? 'ONTEM' : `HÁ ${daysAgo} DIAS`;
+                        const min = Math.floor((last.totalMs||0) / 60000);
+                        const rpeColor = !last.rpe ? '#9b7dd4' : last.rpe <= 3 ? '#3db87a' : last.rpe <= 6 ? '#f0c52e' : last.rpe <= 8 ? '#e87a45' : '#c84b38';
+                        return (
+                            <div className="card" style={{padding:'14px 16px', background:'#fff'}}>
+                                <div style={{width:'100%'}}>
+                                    <div className="card-label" style={{marginBottom:8}}>ÚLTIMO TREINO · {when}</div>
+                                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <div>
+                                            <div style={{fontSize:15,fontWeight:600,color:'var(--text-dark)',marginBottom:3}}>{last.sessionName || last.dayType}</div>
+                                            <div style={{fontSize:11,color:'var(--muted-light)'}}>
+                                                {min > 0 ? `${min} min` : ''}
+                                                {last.rpe ? ` · RPE ${last.rpe}` : ''}
+                                                {last.note ? ` · "${last.note}"` : ''}
+                                            </div>
+                                        </div>
+                                        {last.rpe ? (
+                                            <div style={{width:40,height:40,borderRadius:'50%',background:rpeColor,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                <span style={{fontSize:15,fontWeight:700,color:'#fff'}}>{last.rpe}</span>
+                                            </div>
+                                        ) : <div style={{fontSize:20}}>✓</div>}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {isRest ? (
                         <div className="card card-sessao" style={{opacity:0.5, cursor:'default'}}>
@@ -1954,9 +2031,13 @@
         const [restLeft,  setRestLeft]  = React.useState(0);
         const [restTotal, setRestTotal] = React.useState(0);
 
-        const globalRef = React.useRef(null);
-        const restRef   = React.useRef(null);
+        const [showRPE,  setShowRPE]  = React.useState(false);
+        const [rpeScore, setRpeScore] = React.useState(0);
+        const [rpeNote,  setRpeNote]  = React.useState('');
+        const globalRef    = React.useRef(null);
+        const restRef      = React.useRef(null);
         const startedAtRef = React.useRef(null);
+        const totalMsRef   = React.useRef(0);
         if (startedAtRef.current === null) {
             const s = getSessionState();
             startedAtRef.current = (s && s.startedAt) ? s.startedAt : Date.now();
@@ -2011,11 +2092,24 @@
 
         function encerrarSessao() {
             clearInterval(globalRef.current); clearInterval(restRef.current);
-            const totalMs = Date.now() - startedAtRef.current;
+            totalMsRef.current = Date.now() - startedAtRef.current;
+            setShowRPE(true);
+        }
+
+        function confirmarRPE() {
+            const totalMs = totalMsRef.current;
             saveSessionState({ completed:true, totalMs, doneIds });
             updateStreak();
             const isMinimo = session?.day.type === 'ativo' || totalMs < 15 * 60 * 1000;
-            saveToHistory({ date:new Date().toLocaleDateString('sv'), weekIdx:session?.weekIdx||1, dayType:session?.day.type||'', totalMs, isMinimo });
+            saveToHistory({
+                date: new Date().toLocaleDateString('sv'),
+                weekIdx: session?.weekIdx || 1,
+                dayType: session?.day.type || '',
+                sessionName: session?.day.name || '',
+                totalMs, isMinimo,
+                rpe: rpeScore || null,
+                note: rpeNote.trim() || '',
+            });
             onClose();
         }
 
@@ -2139,6 +2233,41 @@
                         <button onClick={concluirExercicio} style={{width:'100%',padding:14,background:'#f0c52e',color:'#18191f',border:'none',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.5}}>CONCLUÍDO ✓</button>
                     )}
                 </div>
+
+                {showRPE && (
+                    <div style={{position:'absolute',inset:0,background:'rgba(9,15,30,0.97)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',zIndex:10}}>
+                        <div style={{fontSize:10,fontWeight:700,letterSpacing:'1.6px',color:'rgba(245,240,232,0.4)',marginBottom:6}}>SESSÃO COMPLETA</div>
+                        <div style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:700,color:'var(--text-cream)',marginBottom:4,textAlign:'center'}}>{session?.day.name}</div>
+                        <div style={{fontSize:12,color:'rgba(245,240,232,0.4)',marginBottom:32}}>{Math.floor(totalMsRef.current/60000)} min · {doneIds.length} exercícios</div>
+
+                        <div style={{fontSize:11,fontWeight:600,letterSpacing:'1px',color:'rgba(245,240,232,0.5)',marginBottom:14,textTransform:'uppercase'}}>Como foi o esforço?</div>
+                        <div style={{display:'flex',gap:8,marginBottom:28,flexWrap:'wrap',justifyContent:'center'}}>
+                            {[1,2,3,4,5,6,7,8,9,10].map(n => {
+                                const bg = rpeScore === n ? (n<=3?'#3db87a':n<=6?'#f0c52e':n<=8?'#e87a45':'#c84b38') : 'rgba(245,240,232,0.08)';
+                                const col = rpeScore === n ? '#18191f' : 'rgba(245,240,232,0.5)';
+                                return (
+                                    <div key={n} onClick={() => setRpeScore(n)}
+                                        style={{width:44,height:44,borderRadius:'50%',background:bg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:700,color:col,cursor:'pointer',transition:'all 0.15s'}}>
+                                        {n}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <input value={rpeNote} onChange={e => setRpeNote(e.target.value)}
+                            placeholder="Nota rápida (opcional)…"
+                            style={{width:'100%',padding:'12px 16px',borderRadius:12,border:'1px solid rgba(245,240,232,0.12)',background:'rgba(245,240,232,0.06)',color:'var(--text-cream)',fontSize:13,fontFamily:'var(--font-body)',outline:'none',marginBottom:24}}/>
+
+                        <button onClick={confirmarRPE}
+                            style={{width:'100%',padding:14,background:'#3db87a',color:'#fff',border:'none',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.5}}>
+                            SALVAR E CONCLUIR ✓
+                        </button>
+                        <button onClick={confirmarRPE}
+                            style={{background:'none',border:'none',color:'rgba(245,240,232,0.3)',fontSize:12,cursor:'pointer',marginTop:12,padding:8}}>
+                            Pular avaliação
+                        </button>
+                    </div>
+                )}
             </div>
         );
     }
