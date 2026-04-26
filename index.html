@@ -2873,14 +2873,14 @@
                     </div>
 
                     {/* COACH */}
-                    <div className="perf-coach">
+                    <div className="perf-coach" onClick={() => setModal('coach')}>
                         <div className="perf-coach-avatar">BF</div>
                         <div className="perf-coach-body">
                             <div className="perf-coach-lbl">COACH DE VELA</div>
                             <div className="perf-coach-name">Bruno Fontes</div>
-                            <div className="perf-coach-sub">Próxima call qui 15:00 · 45min</div>
+                            <div className="perf-coach-sub">Ver painel do coach →</div>
                         </div>
-                        <button className="perf-falar">FALAR</button>
+                        <button className="perf-falar" onClick={e => { e.stopPropagation(); setModal('coach'); }}>PAINEL</button>
                     </div>
 
                     {/* QUICK LINKS */}
@@ -2972,6 +2972,140 @@
     }
 
     /* ══════════════════════ ONBOARDING ══════════════════════ */
+    function TelaCoach({ onClose }) {
+        const profile = getProfile();
+        const aval    = getAvaliacao();
+        const history = getHistory();
+        const streak  = getStreak();
+
+        const recent = [...history].slice(-8).reverse();
+        const avgRpe = (() => {
+            const w = history.filter(h => h.rpe);
+            return w.length ? Math.round(w.reduce((a,h)=>a+h.rpe,0)/w.length*10)/10 : null;
+        })();
+        const month30 = (() => {
+            const cut = new Date(); cut.setDate(cut.getDate()-30);
+            return history.filter(h => new Date(h.date+'T00:00:00') >= cut).length;
+        })();
+        const avalDaysAgo = aval ? Math.floor((Date.now()-new Date(aval.date+'T00:00:00').getTime())/86400000) : null;
+        const pillars = [
+            {k:'core',      l:'Core',      c:'#9b7dd4'},
+            {k:'forca',     l:'Força',     c:'#c84b38'},
+            {k:'endurance', l:'Endurance', c:'#2d6b4f'},
+            {k:'mobilidade',l:'Mobilidade',c:'#4a8fd9'},
+        ];
+        const avgScore = aval?.scores ? Math.round(Object.values(aval.scores).filter(v=>typeof v==='number').reduce((a,b)=>a+b,0)/4) : null;
+        const level = avgScore ? (avgScore>=80?5:avgScore>=65?4:avgScore>=50?3:avgScore>=35?2:1) : 0;
+        const levelName = ['','Iniciante','Intermediário','Avançado','Elite','World Class'][level];
+        const avalWhen = avalDaysAgo===0?'HOJE':avalDaysAgo===1?'ONTEM':`HÁ ${avalDaysAgo} DIAS`;
+
+        return (
+            <div className="overlay" style={{background:'#f2f0ed'}}>
+                <div className="overlay-topbar" style={{background:'#f2f0ed',borderBottom:'1px solid rgba(24,25,31,0.08)'}}>
+                    <div className="overlay-close" style={{background:'rgba(24,25,31,0.1)'}} onClick={onClose}>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1L11 11M11 1L1 11" stroke="#18191f" strokeWidth="2" strokeLinecap="round"/></svg>
+                    </div>
+                    <div className="overlay-title-lbl" style={{color:'rgba(24,25,31,0.45)'}}>PAINEL DO COACH</div>
+                </div>
+                <div style={{padding:'16px 16px 80px',overflowY:'auto',flex:1}}>
+
+                    {/* Athlete card */}
+                    <div style={{background:'#fff',borderRadius:18,padding:'18px 18px',marginBottom:12}}>
+                        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+                            <div style={{width:52,height:52,borderRadius:'50%',background:'#090f1e',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,color:'#f5f0e8',flexShrink:0}}>
+                                {(profile.firstName[0]||'?')}{(profile.lastName[0]||'')}
+                            </div>
+                            <div>
+                                <div style={{fontSize:17,fontWeight:700,color:'#18191f'}}>{profile.firstName} {profile.lastName}</div>
+                                <div style={{fontSize:11,color:'rgba(24,25,31,0.4)',marginTop:2}}>
+                                    {aval?.esporte==='velejador'?`Velejador${aval.tipoBarco?' · '+aval.tipoBarco:''}`:aval?.esporte||'Atleta'}
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{display:'flex',borderTop:'1px solid rgba(24,25,31,0.07)',paddingTop:14}}>
+                            {[
+                                {lbl:'SEQUÊNCIA', val:`${streak.count}d`, sub:'atual'},
+                                {lbl:'SESSÕES',   val:history.length,      sub:'total'},
+                                {lbl:'RPE MÉDIO', val:avgRpe||'—',         sub:'/10'},
+                                {lbl:'30 DIAS',   val:month30,             sub:'sess.'},
+                            ].map((s,i) => (
+                                <div key={i} style={{flex:1,textAlign:'center',borderLeft:i>0?'1px solid rgba(24,25,31,0.07)':'none'}}>
+                                    <div style={{fontSize:20,fontWeight:700,color:'#18191f',fontFamily:'Cormorant Garamond,serif'}}>{s.val}</div>
+                                    <div style={{fontSize:8,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:'rgba(24,25,31,0.32)',marginTop:1}}>{s.lbl}</div>
+                                    <div style={{fontSize:9,color:'rgba(24,25,31,0.28)'}}>{s.sub}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Assessment pillars */}
+                    {aval?.scores && (
+                        <div style={{background:'#fff',borderRadius:18,padding:'18px 18px',marginBottom:12}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',color:'rgba(24,25,31,0.4)'}}>AVALIAÇÃO · {avalWhen}</div>
+                                <div style={{fontSize:10,fontWeight:700,color:'#fff',background:'#18191f',borderRadius:12,padding:'3px 10px'}}>{levelName}</div>
+                            </div>
+                            {pillars.map(p => {
+                                const score = aval.scores[p.k] ?? 0;
+                                return (
+                                    <div key={p.k} style={{display:'flex',alignItems:'center',gap:10,marginBottom:9}}>
+                                        <div style={{width:70,fontSize:10,fontWeight:600,color:'rgba(24,25,31,0.42)',textTransform:'uppercase',flexShrink:0}}>{p.l}</div>
+                                        <div style={{flex:1,height:6,borderRadius:3,background:'rgba(24,25,31,0.07)',overflow:'hidden'}}>
+                                            <div style={{height:'100%',width:`${score}%`,borderRadius:3,background:p.c}}/>
+                                        </div>
+                                        <div style={{width:26,fontSize:12,fontWeight:700,color:'#18191f',textAlign:'right',flexShrink:0}}>{score}</div>
+                                    </div>
+                                );
+                            })}
+                            {aval.hikingSecs > 0 && (
+                                <div style={{marginTop:10,padding:'8px 12px',background:'rgba(232,122,69,0.08)',borderRadius:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                    <span style={{fontSize:11,fontWeight:600,color:'rgba(24,25,31,0.5)'}}>Hiking Bench</span>
+                                    <span style={{fontSize:13,fontWeight:700,color:'#e87a45'}}>{aval.hikingSecs}s</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {!aval && (
+                        <div style={{background:'rgba(232,122,69,0.1)',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
+                            <div style={{fontSize:12,fontWeight:700,color:'#c05420'}}>Avaliação inicial pendente</div>
+                            <div style={{fontSize:11,color:'rgba(24,25,31,0.5)',marginTop:2}}>Solicite ao atleta que complete a avaliação para ver os pilares de performance.</div>
+                        </div>
+                    )}
+
+                    {/* Session history */}
+                    {recent.length > 0 ? (
+                        <div style={{background:'#fff',borderRadius:18,padding:'18px 18px'}}>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:14}}>ÚLTIMAS SESSÕES</div>
+                            {recent.map((h,i) => {
+                                const d = new Date(h.date+'T00:00:00');
+                                const ds = d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}).toUpperCase();
+                                const min = Math.floor((h.totalMs||0)/60000);
+                                const rc = !h.rpe?'#9b7dd4':h.rpe<=3?'#3db87a':h.rpe<=6?'#f0c52e':h.rpe<=8?'#e87a45':'#c84b38';
+                                return (
+                                    <div key={i} style={{display:'flex',alignItems:'center',gap:10,paddingBottom:i<recent.length-1?10:0,marginBottom:i<recent.length-1?10:0,borderBottom:i<recent.length-1?'1px solid rgba(24,25,31,0.06)':'none'}}>
+                                        <div style={{fontSize:10,fontWeight:600,color:'rgba(24,25,31,0.32)',width:40,flexShrink:0,lineHeight:1.3}}>{ds}</div>
+                                        <div style={{flex:1}}>
+                                            <div style={{fontSize:13,fontWeight:600,color:'#18191f'}}>{h.sessionName||h.dayType||'Sessão'}</div>
+                                            <div style={{fontSize:10,color:'rgba(24,25,31,0.38)',marginTop:1}}>
+                                                {min>0?`${min} min`:''}{h.note?` · "${h.note}"`:''}
+                                            </div>
+                                        </div>
+                                        <div style={{width:32,height:32,borderRadius:'50%',background:h.rpe?rc:'rgba(24,25,31,0.06)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                            <span style={{fontSize:h.rpe?12:14,fontWeight:700,color:h.rpe?(h.rpe<=6?'#18191f':'#fff'):'rgba(24,25,31,0.3)'}}>{h.rpe||'✓'}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div style={{textAlign:'center',padding:'40px 0',color:'rgba(24,25,31,0.35)',fontSize:13}}>Nenhuma sessão registrada ainda.</div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     const OB_SLIDES = [
         { bg:'#090f1e', tc:'#f5f0e8', mc:'rgba(245,240,232,0.42)', n:'1/3',
           title:'We don\'t stop', desc:'Todo dia. Mesmo que seja 10 minutos. A corda não é sobre intensidade — é sobre não soltar.',
@@ -4696,6 +4830,7 @@
         if (modal === 'conexoes')    return <TelaConexoes     onBack={closeModal}/>;
         if (modal === 'planos')      return <TelaPlanos       onBack={closeModal}/>;
         if (modal === 'avaliacao')   return <TelaAvaliacao    onClose={closeModal}/>;
+        if (modal === 'coach')       return <TelaCoach        onClose={closeModal}/>;
 
         function toggleSailing(v) {
             setSailingMode(v);
