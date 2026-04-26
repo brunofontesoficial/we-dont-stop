@@ -1678,31 +1678,28 @@
     }
 
     function TelaSessionAtiva({ session, onClose }) {
-        // Flatten exercises: [{ id, section, color, name, detail, rest }]
-        const allExercises = React.useMemo(() => {
+        const sections = React.useMemo(() => {
             if (!session) return [];
-            const sections = getSessionSections(session.day.type, getAvaliacao(), getCardioMode());
-            return sections.flatMap((sec, si) =>
-                sec.items.map((item, ii) => ({
-                    id:      `s${si}-i${ii}`,
-                    section: sec.title,
-                    color:   sec.color,
-                    ...item,
-                }))
-            );
+            return getSessionSections(session.day.type, getAvaliacao(), getCardioMode());
         }, [session]);
+
+        const allExercises = React.useMemo(() =>
+            sections.flatMap((sec, si) =>
+                sec.items.map((item, ii) => ({ id:`s${si}-i${ii}`, section:sec.title, color:sec.color, ...item }))
+            ), [sections]);
 
         const today = new Date().toLocaleDateString('sv');
 
-        const [doneIds, setDoneIds] = React.useState(() => {
-            const s = getSessionState();
-            return (s && !s.completed) ? (s.doneIds || []) : [];
-        });
-        const [elapsed, setElapsed] = React.useState(() => {
-            const s = getSessionState();
-            return (s && s.startedAt) ? Math.floor((Date.now() - s.startedAt) / 1000) : 0;
-        });
-        const timerRef = React.useRef(null);
+        const [doneIds,   setDoneIds]   = React.useState(() => { const s=getSessionState(); return (s&&!s.completed)?(s.doneIds||[]): []; });
+        const [elapsed,   setElapsed]   = React.useState(() => { const s=getSessionState(); return (s&&s.startedAt)?Math.floor((Date.now()-s.startedAt)/1000):0; });
+        const [phase,     setPhase]     = React.useState('exercise'); // 'exercise' | 'rest'
+        const [exElapsed, setExElapsed] = React.useState(0);
+        const [restLeft,  setRestLeft]  = React.useState(0);
+        const [restTotal, setRestTotal] = React.useState(0);
+
+        const globalRef = React.useRef(null);
+        const exRef     = React.useRef(null);
+        const restRef   = React.useRef(null);
         const startedAtRef = React.useRef(null);
         if (startedAtRef.current === null) {
             const s = getSessionState();
@@ -1710,62 +1707,76 @@
         }
 
         React.useEffect(() => {
-            saveSessionState({
-                date:      today,
-                weekIdx:   session ? session.weekIdx : 1,
-                dayType:   session ? session.day.type : '',
-                doneIds:   doneIds,
-                startedAt: startedAtRef.current,
-                completed: false,
-            });
-            timerRef.current = setInterval(() => {
-                setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
-            }, 1000);
-            return () => clearInterval(timerRef.current);
+            saveSessionState({ date:today, weekIdx:session?.weekIdx||1, dayType:session?.day.type||'', doneIds, startedAt:startedAtRef.current, completed:false });
+            globalRef.current = setInterval(() => setElapsed(Math.floor((Date.now()-startedAtRef.current)/1000)), 1000);
+            exRef.current     = setInterval(() => setExElapsed(v => v+1), 1000);
+            return () => { clearInterval(globalRef.current); clearInterval(exRef.current); clearInterval(restRef.current); };
         }, []);
 
         function fmtTime(secs) {
-            const h = Math.floor(secs / 3600);
-            const m = Math.floor((secs % 3600) / 60);
-            const s = secs % 60;
-            const pad = n => String(n).padStart(2, '0');
-            return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+            const m = Math.floor(secs/60), s = secs%60;
+            return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         }
+        function parseRest(str) { const m = String(str||'').match(/(\d+)/); return m ? parseInt(m[1]) : 0; }
 
         const currentEx = allExercises.find(ex => !doneIds.includes(ex.id));
+        const nextEx    = currentEx ? allExercises.find(ex => !doneIds.includes(ex.id) && ex.id !== currentEx.id) : null;
+        const allDone   = allExercises.length === 0 || doneIds.length >= allExercises.length;
 
         function concluirExercicio() {
             if (!currentEx) return;
+            clearInterval(exRef.current);
             const newDone = [...doneIds, currentEx.id];
+            const isLast  = newDone.length >= allExercises.length;
             setDoneIds(newDone);
             saveSessionState({ doneIds: newDone });
+            setExElapsed(0);
+            const restSecs = parseRest(currentEx.rest);
+            if (restSecs > 0 && !isLast) {
+                setRestTotal(restSecs);
+                setRestLeft(restSecs);
+                setPhase('rest');
+                restRef.current = setInterval(() => {
+                    setRestLeft(v => {
+                        if (v <= 1) {
+                            clearInterval(restRef.current);
+                            setPhase('exercise');
+                            exRef.current = setInterval(() => setExElapsed(v2 => v2+1), 1000);
+                            return 0;
+                        }
+                        return v-1;
+                    });
+                }, 1000);
+            } else {
+                setPhase('exercise');
+                exRef.current = setInterval(() => setExElapsed(v => v+1), 1000);
+            }
+        }
+
+        function skipRest() {
+            clearInterval(restRef.current);
+            setRestLeft(0); setPhase('exercise');
+            exRef.current = setInterval(() => setExElapsed(v => v+1), 1000);
         }
 
         function encerrarSessao() {
-            clearInterval(timerRef.current);
+            clearInterval(globalRef.current); clearInterval(exRef.current); clearInterval(restRef.current);
             const totalMs = Date.now() - startedAtRef.current;
-            saveSessionState({ completed: true, totalMs, doneIds });
+            saveSessionState({ completed:true, totalMs, doneIds });
             updateStreak();
-            saveToHistory({
-                date: new Date().toLocaleDateString('sv'),
-                weekIdx: session ? session.weekIdx : 1,
-                dayType: session ? session.day.type : '',
-                totalMs,
-            });
+            saveToHistory({ date:new Date().toLocaleDateString('sv'), weekIdx:session?.weekIdx||1, dayType:session?.day.type||'', totalMs });
             onClose();
         }
 
-        const allDone = allExercises.length === 0 || doneIds.length >= allExercises.length;
-
-        const sections = session ? (SESSION_TEMPLATES[session.day.type] || []) : [];
-
         if (!session) return null;
+        const progressPct = allExercises.length > 0 ? (doneIds.length / allExercises.length) * 100 : 0;
+        const CIRC = 2 * Math.PI * 54;
 
         return (
             <div style={{position:'fixed',inset:0,background:'var(--bg)',zIndex:200,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-                {/* Top bar */}
-                <div style={{padding:'14px 20px 10px',flexShrink:0}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                {/* Topbar */}
+                <div style={{padding:'14px 20px 8px',flexShrink:0}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
                         <div>
                             <div style={{fontSize:8,fontWeight:700,letterSpacing:'1.5px',color:'rgba(245,240,232,0.38)',marginBottom:2}}>
                                 SESSÃO ATIVA · {new Date().toLocaleDateString('pt-BR',{weekday:'short'}).toUpperCase()}
@@ -1773,74 +1784,111 @@
                             <div style={{fontSize:13,fontWeight:700,color:'#f5f0e8'}}>{session.day.name}</div>
                         </div>
                         <div style={{display:'flex',alignItems:'center',gap:10}}>
-                            <div style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:700,color: allDone ? '#3db87a' : '#f5f0e8',fontVariantNumeric:'tabular-nums'}}>
-                                {fmtTime(elapsed)}
-                            </div>
+                            <div style={{fontFamily:'var(--font-display)',fontSize:20,fontWeight:700,color:'rgba(245,240,232,0.45)',fontVariantNumeric:'tabular-nums'}}>{fmtTime(elapsed)}</div>
                             <div onClick={onClose} style={{width:28,height:28,borderRadius:'50%',background:'rgba(245,240,232,0.08)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'rgba(245,240,232,0.5)',fontSize:14}}>✕</div>
                         </div>
                     </div>
-                </div>
-
-                {/* Scrollable exercise list */}
-                <div style={{flex:1,overflowY:'auto',padding:'0 20px',WebkitOverflowScrolling:'touch'}}>
-                    {sections.map((sec, si) => (
-                        <div key={si} style={{marginBottom:4}}>
-                            <div style={{fontSize:8,fontWeight:700,letterSpacing:'1.4px',color:'rgba(245,240,232,0.32)',margin:'10px 0 4px',
-                                ...(sec.items.some((_,ii) => `s${si}-i${ii}` === currentEx?.id) ? {color: sec.color} : {})
-                            }}>{sec.title}</div>
-                            {sec.items.map((item, ii) => {
-                                const id   = `s${si}-i${ii}`;
-                                const done = doneIds.includes(id);
-                                const isActive = currentEx?.id === id;
-                                return (
-                                    <div key={id} style={{
-                                        display:'flex',alignItems:'center',gap:8,
-                                        padding:'7px 8px',borderRadius:9,marginBottom:3,
-                                        background: isActive ? `${sec.color}18` : 'transparent',
-                                        border: isActive ? `1px solid ${sec.color}40` : '1px solid transparent',
-                                        opacity: done ? 0.32 : 1,
-                                    }}>
-                                        <div style={{
-                                            width:12,height:12,borderRadius:'50%',flexShrink:0,
-                                            background: done ? '#3db87a' : 'transparent',
-                                            border: done ? 'none' : `1.5px solid ${isActive ? sec.color : 'rgba(245,240,232,0.2)'}`,
-                                            display:'flex',alignItems:'center',justifyContent:'center',
-                                        }}>
-                                            {done && <svg width="7" height="7" viewBox="0 0 7 7"><path d="M1 3.5L3 5.5L6 2" stroke="white" strokeWidth="1.4" fill="none"/></svg>}
-                                        </div>
-                                        <div style={{flex:1}}>
-                                            <div style={{
-                                                fontSize:11,fontWeight:600,
-                                                color: done ? 'rgba(245,240,232,0.4)' : isActive ? sec.color : '#f5f0e8',
-                                                textDecoration: done ? 'line-through' : 'none',
-                                            }}>{item.name}</div>
-                                            <div style={{fontSize:9,color:'rgba(245,240,232,0.35)',marginTop:1}}>{item.detail}</div>
-                                        </div>
-                                        {item.rest && <div style={{fontSize:9,color:'rgba(245,240,232,0.3)',flexShrink:0}}>⏱ {item.rest}</div>}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ))}
-                    <div style={{height:100}}/>
-                </div>
-
-                {/* Fixed footer */}
-                <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'10px 20px 28px',background:'rgba(9,15,30,0.96)',backdropFilter:'blur(12px)',borderTop:'1px solid rgba(245,240,232,0.06)'}}>
-                    <div style={{background:'rgba(245,240,232,0.08)',borderRadius:4,height:3,marginBottom:6}}>
-                        <div style={{height:3,borderRadius:4,background:'#3db87a',width:`${allExercises.length > 0 ? (doneIds.length / allExercises.length) * 100 : 0}%`,transition:'width 0.3s'}}/>
+                    <div style={{background:'rgba(245,240,232,0.08)',borderRadius:4,height:3}}>
+                        <div style={{height:3,borderRadius:4,background:'#3db87a',width:`${progressPct}%`,transition:'width 0.4s'}}/>
                     </div>
-                    <div style={{fontSize:9,color:'rgba(245,240,232,0.3)',textAlign:'center',marginBottom:10}}>
+                </div>
+
+                {/* Content */}
+                <div style={{flex:1,overflowY:'auto',padding:'0 20px',WebkitOverflowScrolling:'touch'}}>
+                    {allDone ? (
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'80%',textAlign:'center'}}>
+                            <div style={{fontSize:52,marginBottom:14}}>🎯</div>
+                            <div style={{fontFamily:'var(--font-display)',fontSize:32,fontWeight:600,color:'#3db87a',marginBottom:8}}>Sessão completa!</div>
+                            <div style={{fontSize:14,color:'rgba(245,240,232,0.45)'}}>Duração total: {fmtTime(elapsed)}</div>
+                        </div>
+                    ) : phase === 'rest' ? (
+                        /* ── REST PHASE ── */
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:32}}>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:2,color:'rgba(245,240,232,0.38)',marginBottom:20,textTransform:'uppercase'}}>Descanso</div>
+                            <div style={{position:'relative',width:128,height:128,marginBottom:20}}>
+                                <svg width="128" height="128" style={{position:'absolute',top:0,left:0,transform:'rotate(-90deg)'}}>
+                                    <circle cx="64" cy="64" r="54" fill="none" stroke="rgba(245,240,232,0.08)" strokeWidth="6"/>
+                                    <circle cx="64" cy="64" r="54" fill="none" stroke="#3db87a" strokeWidth="6"
+                                        strokeDasharray={CIRC}
+                                        strokeDashoffset={restTotal > 0 ? CIRC*(1-restLeft/restTotal) : 0}
+                                        strokeLinecap="round"
+                                        style={{transition:'stroke-dashoffset 1s linear'}}/>
+                                </svg>
+                                <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                    <div style={{fontFamily:'var(--font-display)',fontSize:36,fontWeight:700,color:'#f5f0e8',fontVariantNumeric:'tabular-nums'}}>{restLeft}s</div>
+                                </div>
+                            </div>
+                            {nextEx && (
+                                <div style={{textAlign:'center',marginBottom:16}}>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:'rgba(245,240,232,0.3)',marginBottom:4}}>A SEGUIR</div>
+                                    <div style={{fontSize:17,fontWeight:600,color:'rgba(245,240,232,0.75)'}}>{nextEx.name}</div>
+                                    <div style={{fontSize:11,color:'rgba(245,240,232,0.35)',marginTop:2}}>{nextEx.detail}</div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        /* ── EXERCISE PHASE ── */
+                        <>
+                            {currentEx && (
+                                <div style={{marginBottom:12,marginTop:4}}>
+                                    {/* Focus card */}
+                                    <div style={{background:`${currentEx.color}10`,border:`1.5px solid ${currentEx.color}35`,borderRadius:18,padding:'22px 20px',marginBottom:10}}>
+                                        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:currentEx.color,marginBottom:10,textTransform:'uppercase'}}>{currentEx.section}</div>
+                                        <div style={{fontFamily:'var(--font-display)',fontSize:26,fontWeight:600,color:'#f5f0e8',marginBottom:4,lineHeight:1.2}}>{currentEx.name}</div>
+                                        <div style={{fontSize:13,color:'rgba(245,240,232,0.48)',marginBottom:18}}>{currentEx.detail}</div>
+                                        <div style={{display:'flex',alignItems:'baseline',gap:10}}>
+                                            <div style={{fontFamily:'var(--font-display)',fontSize:44,fontWeight:700,color:currentEx.color,fontVariantNumeric:'tabular-nums',lineHeight:1}}>{fmtTime(exElapsed)}</div>
+                                            {currentEx.rest && currentEx.rest !== '—' && (
+                                                <div style={{fontSize:10,color:'rgba(245,240,232,0.28)'}}>descanso {currentEx.rest}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* Next up */}
+                                    {nextEx && (
+                                        <div style={{background:'rgba(245,240,232,0.03)',border:'1px solid rgba(245,240,232,0.06)',borderRadius:10,padding:'9px 14px',display:'flex',alignItems:'center',gap:10}}>
+                                            <div style={{fontSize:8,fontWeight:700,letterSpacing:1.2,color:'rgba(245,240,232,0.22)',flexShrink:0}}>PRÓXIMO</div>
+                                            <div style={{fontSize:12,fontWeight:600,color:'rgba(245,240,232,0.45)',flex:1}}>{nextEx.name}</div>
+                                            <div style={{fontSize:10,color:'rgba(245,240,232,0.25)'}}>{nextEx.detail}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {/* Remaining list */}
+                            {sections.map((sec, si) => (
+                                <div key={si} style={{marginBottom:4}}>
+                                    <div style={{fontSize:8,fontWeight:700,letterSpacing:'1.4px',color:'rgba(245,240,232,0.22)',margin:'8px 0 4px',textTransform:'uppercase'}}>{sec.title}</div>
+                                    {sec.items.map((item, ii) => {
+                                        const id = `s${si}-i${ii}`;
+                                        const done = doneIds.includes(id);
+                                        if (id === currentEx?.id) return null;
+                                        return (
+                                            <div key={id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:8,marginBottom:2,opacity:done?0.22:0.6}}>
+                                                <div style={{width:10,height:10,borderRadius:'50%',flexShrink:0,background:done?'#3db87a':'transparent',border:done?'none':'1.5px solid rgba(245,240,232,0.2)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                                    {done && <svg width="6" height="6" viewBox="0 0 6 6"><path d="M1 3L2.5 4.5L5 2" stroke="white" strokeWidth="1.4" fill="none"/></svg>}
+                                                </div>
+                                                <div style={{fontSize:11,fontWeight:500,color:done?'rgba(245,240,232,0.35)':'rgba(245,240,232,0.65)',textDecoration:done?'line-through':'none',flex:1}}>{item.name}</div>
+                                                <div style={{fontSize:9,color:'rgba(245,240,232,0.25)'}}>{item.detail}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                            <div style={{height:100}}/>
+                        </>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'10px 20px 28px',background:'rgba(9,15,30,0.96)',backdropFilter:'blur(12px)',borderTop:'1px solid rgba(245,240,232,0.06)'}}>
+                    <div style={{fontSize:9,color:'rgba(245,240,232,0.28)',textAlign:'center',marginBottom:10}}>
                         {doneIds.length} de {allExercises.length} exercícios
                     </div>
                     {allDone ? (
-                        <button onClick={encerrarSessao} style={{width:'100%',padding:'14px',background:'#3db87a',color:'#fff',border:'none',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:'0.5px'}}>
-                            ENCERRAR SESSÃO
-                        </button>
+                        <button onClick={encerrarSessao} style={{width:'100%',padding:14,background:'#3db87a',color:'#fff',border:'none',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.5}}>ENCERRAR SESSÃO ✓</button>
+                    ) : phase === 'rest' ? (
+                        <button onClick={skipRest} style={{width:'100%',padding:14,background:'rgba(245,240,232,0.07)',color:'rgba(245,240,232,0.55)',border:'1px solid rgba(245,240,232,0.1)',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.5}}>PULAR DESCANSO →</button>
                     ) : (
-                        <button onClick={concluirExercicio} style={{width:'100%',padding:'14px',background:'#f0c52e',color:'#18191f',border:'none',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:'0.5px'}}>
-                            CONCLUIR EXERCÍCIO ✓
-                        </button>
+                        <button onClick={concluirExercicio} style={{width:'100%',padding:14,background:'#f0c52e',color:'#18191f',border:'none',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.5}}>CONCLUÍDO ✓</button>
                     )}
                 </div>
             </div>
