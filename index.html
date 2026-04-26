@@ -2501,6 +2501,100 @@
         );
     }
 
+    const ZONE_GUIDE = [
+        {
+            z:'Z1', name:'Recuperação', color:'#3db87a',
+            feel:'Conversa normal, sem esforço algum',
+            rpe:'1 – 2',
+            when:'Dias de recuperação e volta à calma após sessões intensas',
+            ex:'Caminhada leve · mobilidade · retorno após regata',
+        },
+        {
+            z:'Z2', name:'Base Aeróbica', color:'#91c96e',
+            feel:'Conversa fácil e ritmo confortável — poderia ficar horas',
+            rpe:'3 – 4',
+            when:'Volume de base e construção do motor aeróbico — o mais importante',
+            ex:'Corrida 45–60min em ritmo conversacional · ciclismo longo',
+        },
+        {
+            z:'Z3', name:'Aeróbico', color:'#f0c52e',
+            feel:'Conversa possível mas difícil — frases curtas',
+            rpe:'5 – 6',
+            when:'Ritmo de treino médio · fartlek · treinos de tempo',
+            ex:'Corrida em ritmo de prova de 10km · remo pace médio',
+        },
+        {
+            z:'Z4', name:'Limiar', color:'#e87a45',
+            feel:'Difícil manter conversa — respiração pesada e controlada',
+            rpe:'7 – 8',
+            when:'Intervalos longos e treinos de limiar anaeróbico — zona mais importante para performance',
+            ex:'4 × 8min em Z4 com 2min descanso · 2km remo all-out',
+        },
+        {
+            z:'Z5', name:'Máximo', color:'#c84b38',
+            feel:'Impossível falar — máximo esforço, insustentável acima de 2min',
+            rpe:'9 – 10',
+            when:'Sprints curtos e intervalos de alta intensidade — use com moderação',
+            ex:'6 × 30s all-out com 90s descanso · sprints de hiking',
+        },
+    ];
+
+    function ZoneTutorial({ zones }) {
+        const [open, setOpen] = React.useState(false);
+        return (
+            <div style={{marginTop:16}}>
+                <button onClick={() => setOpen(v=>!v)} style={{
+                    width:'100%', padding:'12px 16px', borderRadius:12, border:'1.5px solid rgba(24,25,31,0.12)',
+                    background: open ? '#18191f' : '#fff', color: open ? '#f5f0e8' : 'var(--text-dark)',
+                    display:'flex', alignItems:'center', justifyContent:'space-between',
+                    cursor:'pointer', fontFamily:'var(--font-body)', fontSize:12, fontWeight:700,
+                    letterSpacing:0.5, transition:'all 0.2s',
+                }}>
+                    <span>COMO TREINAR CADA ZONA</span>
+                    <span style={{fontSize:16, fontWeight:400, transition:'transform 0.2s', display:'inline-block', transform: open ? 'rotate(180deg)' : 'none'}}>›</span>
+                </button>
+                {open && (
+                    <div style={{marginTop:2}}>
+                        {ZONE_GUIDE.map((g,i) => {
+                            const zone = zones ? zones[i] : null;
+                            return (
+                                <div key={i} style={{
+                                    background:'#fff', borderRadius:12, padding:'16px',
+                                    marginTop:6, border:'1px solid rgba(24,25,31,0.07)',
+                                }}>
+                                    <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10}}>
+                                        <div style={{width:32,height:32,borderRadius:8,background:g.color,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                            <span style={{fontSize:10,fontWeight:800,color:'#fff',letterSpacing:0.3}}>{g.z}</span>
+                                        </div>
+                                        <div>
+                                            <div style={{fontSize:13,fontWeight:700,color:'var(--text-dark)',lineHeight:1.2}}>{g.name}</div>
+                                            {zone && <div style={{fontSize:11,color:g.color,fontWeight:600}}>{zone.lo}–{zone.hi} bpm</div>}
+                                        </div>
+                                        <div style={{marginLeft:'auto',background:'rgba(24,25,31,0.06)',borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,color:'rgba(24,25,31,0.5)'}}>RPE {g.rpe}</div>
+                                    </div>
+                                    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                                        <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+                                            <span style={{fontSize:10,fontWeight:700,color:'rgba(24,25,31,0.35)',width:52,flexShrink:0,paddingTop:1}}>SENSAÇÃO</span>
+                                            <span style={{fontSize:12,color:'rgba(24,25,31,0.7)',lineHeight:1.4}}>{g.feel}</span>
+                                        </div>
+                                        <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+                                            <span style={{fontSize:10,fontWeight:700,color:'rgba(24,25,31,0.35)',width:52,flexShrink:0,paddingTop:1}}>QUANDO</span>
+                                            <span style={{fontSize:12,color:'rgba(24,25,31,0.7)',lineHeight:1.4}}>{g.when}</span>
+                                        </div>
+                                        <div style={{display:'flex',gap:8,alignItems:'flex-start'}}>
+                                            <span style={{fontSize:10,fontWeight:700,color:'rgba(24,25,31,0.35)',width:52,flexShrink:0,paddingTop:1}}>EXEMPLO</span>
+                                            <span style={{fontSize:12,color:g.color,fontWeight:600,lineHeight:1.4}}>{g.ex}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     function TelaAvaliacao({ onClose }) {
         const [step, setStep] = useState(1);
 
@@ -3061,6 +3155,7 @@
                                 <div style={{fontSize:11,color:'rgba(24,25,31,0.35)',marginTop:8,lineHeight:1.5}}>
                                     Fórmula Karvonen · usa FC de reserva para maior precisão.
                                 </div>
+                                <ZoneTutorial zones={zones}/>
                             </div>
                         );
                     })()}
