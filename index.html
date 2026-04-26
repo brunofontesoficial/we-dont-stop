@@ -1688,7 +1688,7 @@
     function TelaSessionAtiva({ session, onClose }) {
         const sections = React.useMemo(() => {
             if (!session) return [];
-            return getSessionSections(session.day.type, getAvaliacao(), getCardioMode());
+            return getSessionSections(session.day.type, getAvaliacao(), session.day.cardioMode || getCardioMode());
         }, [session]);
 
         const allExercises = React.useMemo(() =>
@@ -3405,30 +3405,51 @@
     function getPlanWeeks(aval) {
         const scores     = aval?.scores || null;
         const dias       = Math.min(Math.max(aval?.diasSemana || 4, 1), 6);
-        const hasHiking  = aval?.esporte === 'velejador' && aval?.tipoBarco === 'hiking';
+        const esporte    = aval?.esporte || 'outro';
+        const hasHiking  = esporte === 'velejador' && aval?.tipoBarco === 'hiking';
         const isJunior   = aval?.categoria === 'Júnior -18';
+        const isMaster   = aval?.categoria === 'Máster +35';
+        const equip      = aval?.equipamentos || [];
+        const hasAcademia = equip.includes('Academia');
+        const hasBike     = equip.includes('Bicicleta');
+        const hasErgo     = equip.includes('Ergômetro');
 
-        // Volume scale for juniors (-20%)
+        // Primary cardio mode: sport takes precedence, then equipment
+        let cardioMode = 'corrida';
+        if (esporte === 'ciclista')                             cardioMode = 'bike';
+        else if (esporte === 'remador' || esporte === 'remo')  cardioMode = 'remo';
+        else if (hasErgo && esporte !== 'corredor')            cardioMode = 'remo';
+        else if (hasBike && esporte !== 'corredor')            cardioMode = 'bike';
+
         function sd(n) { return isJunior ? `${Math.round(n * 0.8)} min` : `${n} min`; }
+
+        const C = {
+            corrida: {base:'Corrida base Z2', var:'Corrida · fartlek',     leve:'Corrida leve',    sub:'Ritmo conversacional · zona 2'},
+            bike:    {base:'Bike base Z2',    var:'Bike · variações',       leve:'Bike leve',       sub:'Cadência suave · zona 2'},
+            remo:    {base:'Ergômetro Z2',    var:'Ergômetro · variações',  leve:'Ergômetro leve',  sub:'Cadência controlada · zona 2'},
+        }[cardioMode];
+
+        const forcaName = hasAcademia ? 'Musculação funcional' : 'Circuito funcional';
+        const forcaNamePlus = hasAcademia ? 'Musculação +carga' : 'Circuito +1 série';
 
         const DAY_NAMES = {
             endurance: [
-                {name:'Corrida base Z2',       sub:'Ritmo conversacional · zona 2',    dur:sd(40)},
-                {name:'Corrida base Z2',        sub:'Ritmo estável · mesma carga',      dur:sd(40)},
-                {name:'Corrida com fartlek',    sub:'Variação de ritmo',                dur:sd(50)},
-                {name:'Corrida leve',           sub:'Ritmo confortável · Z1–Z2',        dur:sd(30)},
+                {name:C.base,        sub:C.sub,                              dur:sd(40), cardioMode},
+                {name:C.base,        sub:'Ritmo estável · mesma carga',      dur:sd(40), cardioMode},
+                {name:C.var,         sub:'Variação de ritmo',                dur:sd(50), cardioMode},
+                {name:C.leve,        sub:'Ritmo confortável · Z1–Z2',        dur:sd(30), cardioMode},
             ],
             hiking: [
-                {name:'Hiking bench + Core',   sub:'Isometria + prancha EMOM',         dur:sd(35)},
-                {name:'Hiking + Hollow rocks', sub:'Qualidade > quantidade',            dur:sd(35)},
-                {name:'Hiking + série extra',  sub:'+1 série isométrica',              dur:sd(40)},
-                {name:'Técnica · vol. baixo',  sub:'Qualidade · sem fadiga',           dur:sd(20)},
+                {name:'Hiking bench + Core',   sub:'Isometria + prancha EMOM',   dur:sd(35)},
+                {name:'Hiking + Hollow rocks', sub:'Qualidade > quantidade',      dur:sd(35)},
+                {name:'Hiking + série extra',  sub:'+1 série isométrica',         dur:sd(40)},
+                {name:'Técnica · vol. baixo',  sub:'Qualidade · sem fadiga',      dur:sd(20)},
             ],
             forca: [
-                {name:'Circuito funcional',    sub:'Agachamento · remada · push-up',   dur:sd(40)},
-                {name:'Circuito funcional',    sub:'Técnica limpa · mesma carga',      dur:sd(40)},
-                {name:'Circuito +1 série',     sub:'Volume ligeiramente aumentado',    dur:sd(45)},
-                {name:'Circuito reduzido',     sub:'Metade do volume habitual',        dur:sd(25)},
+                {name:forcaName,     sub:'Agachamento · remada · push-up',   dur:sd(40)},
+                {name:forcaName,     sub:'Técnica limpa · mesma carga',      dur:sd(40)},
+                {name:forcaNamePlus, sub:'Volume ligeiramente aumentado',    dur:sd(45)},
+                {name:'Circuito reduzido',     sub:'Metade do volume habitual',   dur:sd(25)},
             ],
             core: [
                 {name:'Core funcional',        sub:'Hollow hold · dead bug · prancha', dur:sd(30)},
@@ -3437,10 +3458,10 @@
                 {name:'Core + mobilidade',     sub:'Suave · sem intensidade alta',     dur:sd(20)},
             ],
             ativo: [
-                {name:'Mobilidade ativa',      sub:'Rolamento + alongamento',          dur:'20 min'},
-                {name:'Mobilidade ativa',      sub:'Mobilidade de quadril',            dur:'20 min'},
-                {name:'Mobilidade ativa',      sub:'Trabalho de ombro',               dur:'20 min'},
-                {name:'Caminhada ativa',       sub:'Recuperação leve',                dur:'20 min'},
+                {name:'Mobilidade ativa',      sub:'Rolamento + alongamento',     dur:'20 min'},
+                {name:'Mobilidade ativa',      sub:'Mobilidade de quadril',       dur:'20 min'},
+                {name:'Mobilidade ativa',      sub:'Trabalho de ombro',          dur:'20 min'},
+                {name:'Caminhada ativa',       sub:'Recuperação leve',           dur:'20 min'},
             ],
             descanso: [
                 {name:'Descanso', sub:'', dur:''},
@@ -3451,22 +3472,30 @@
         };
         function d(type, wi) { return { type, ...DAY_NAMES[type][Math.min(wi,3)] }; }
 
-        // Build priority pool of session types based on profile weakness
-        const candidates = [
-            hasHiking              ? {t:'hiking',    s: scores?.hiking    ?? 50} : null,
-            {t:'endurance', s: scores?.endurance ?? 50},
-            {t:'core',      s: scores?.core      ?? 50},
-            {t:'forca',     s: scores?.forca     ?? 50},
-        ].filter(Boolean).sort((a,b) => a.s - b.s); // weakest first
+        // Build candidate pool by sport: weak areas first, sport emphasis applied
+        // enduranceW/forcaW: how many slots each type occupies before cycling
+        const enduranceW = ['corredor','ciclista','remador','remo','triatleta'].includes(esporte) ? 2 : 1;
+        const forcaW     = esporte === 'crossfit' ? 2 : 1;
 
-        // Fill session pool up to dias, cycling through types
+        const scoreOf = t => scores?.[t === 'hiking' ? 'hiking' : t] ?? 50;
+
+        const rawTypes = [
+            ...(hasHiking ? ['hiking'] : []),
+            ...Array(enduranceW).fill('endurance'),
+            ...Array(forcaW).fill('forca'),
+            'core',
+        ];
+
+        // Dedupe, sort unique types by score (weakest first), then re-expand
+        const unique = [...new Set(rawTypes)].sort((a,b) => scoreOf(a) - scoreOf(b));
+        const candidates = unique.flatMap(t => Array(rawTypes.filter(x=>x===t).length).fill(t));
+
         const pool = [];
         for (let i = 0; pool.length < dias; i++) {
-            pool.push(candidates[i % candidates.length].t);
+            pool.push(candidates[i % candidates.length]);
         }
 
-        // Week placement patterns (indices 0=SEG … 6=DOM)
-        // train: active session slots, ativo: recovery slot
+        // Week patterns (0=SEG … 6=DOM)
         const patterns = {
             1: { train:[1],          ativo:[4] },
             2: { train:[0,3],        ativo:[5] },
@@ -3475,12 +3504,18 @@
             5: { train:[0,1,2,3,4],  ativo:[5] },
             6: { train:[0,1,2,3,4,5],ativo:[]  },
         };
-        const pat = patterns[dias];
+        let pat = { ...patterns[dias], train: [...patterns[dias].train], ativo: [...patterns[dias].ativo] };
+
+        // Máster +35: convert last training slot to extra recovery
+        if (isMaster && pat.train.length >= 3) {
+            const last = pat.train.pop();
+            pat.ativo.push(last);
+        }
 
         function buildWeek(wi) {
             return Array.from({length:7}, (_,dayIdx) => {
                 const ti = pat.train.indexOf(dayIdx);
-                if (ti >= 0) return d(pool[ti], wi);
+                if (ti >= 0) return d(pool[ti] || 'forca', wi);
                 if (pat.ativo.includes(dayIdx)) return d('ativo', wi);
                 return d('descanso', wi);
             });
@@ -3916,12 +3951,29 @@
             },
         };
 
-        return (S[type] && S[type][tier]) || SESSION_TEMPLATES[type] || [];
+        // Equipment filter: replace gym-only exercises with bodyweight alternatives
+        const hasAcademia = (aval?.equipamentos || []).includes('Academia');
+        function equipFilter(items) {
+            if (hasAcademia) return items;
+            const subs = {
+                'Farmer carry':         {name:'Agachamento sumô',      detail:'3 × 30s',      rest:'60s'},
+                'Barra / inverted row': {name:'Inverted row (mesa)',   detail:null,            rest:null},
+                'Step-up lastrado':     {name:'Step-up',               detail:null,            rest:null},
+                'Ab wheel rollout':     {name:'Mountain climbers',     detail:'3 × 20 rep',    rest:'60s'},
+            };
+            return items.map(item => {
+                const sub = subs[item.name];
+                if (!sub) return item;
+                return { ...item, name:sub.name, detail:sub.detail ?? item.detail, rest:sub.rest ?? item.rest };
+            });
+        }
+        const raw = (S[type] && S[type][tier]) || SESSION_TEMPLATES[type] || [];
+        return raw.map(sec => ({ ...sec, items: equipFilter(sec.items) }));
     }
 
     function TelaSessaoDetalhe({ session, dayLabel, weekName, weekIdx, onBack, openSession }) {
         const b = (PLAN_BADGE[session.type] || PLAN_BADGE['forca']);
-        const [cardioMode, setCardioModeState] = useState(getCardioMode);
+        const [cardioMode, setCardioModeState] = useState(() => session.cardioMode || getCardioMode());
         function pickCardio(m) { setCardioModeState(m); saveCardioMode(m); }
         const sections = getSessionSections(session.type, getAvaliacao(), cardioMode);
         return (
