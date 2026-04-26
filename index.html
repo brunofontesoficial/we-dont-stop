@@ -2852,7 +2852,7 @@
                 ]}/>
                 <div className="timer-box" onClick={toggleHiking} style={{cursor:'pointer', userSelect:'none', background: hikingOn ? 'rgba(24,25,31,0.04)' : '#fff'}}>
                     <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.6px', textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>
-                        {hikingOn ? 'TOQUE PARA PARAR' : 'TOQUE PARA INICIAR'}
+                        {hikingOn ? 'TOQUE PARA PARAR' : hikingVal > 0 ? 'TOQUE PARA REFAZER' : 'TOQUE PARA INICIAR'}
                     </div>
                     <div className="timer-row">
                         <div className="timer-n">{mm(secs)}</div>
@@ -2862,17 +2862,42 @@
                         <div className="timer-unit-lbl">SEG</div>
                     </div>
                 </div>
+                {hikingVal > 0 && !hikingOn && (() => {
+                    const lvl = levels.find(l => hikingSecs >= l.min && hikingSecs <= l.max) || levels[0];
+                    const score = Math.min(100, Math.round(hikingSecs / 240 * 100));
+                    return (
+                        <div style={{background:'var(--card-cream)', borderRadius:16, padding:'20px', marginBottom:16, border:`2px solid ${lvl.color}`}}>
+                            <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU RESULTADO</div>
+                            <div style={{display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:12}}>
+                                <div>
+                                    <div style={{fontFamily:'var(--font-display)', fontSize:52, fontWeight:600, lineHeight:1, color:'var(--text-dark)'}}>{mm(hikingSecs)}</div>
+                                    <div style={{fontSize:11, color:'rgba(24,25,31,0.45)', marginTop:4}}>min · seg</div>
+                                </div>
+                                <div style={{textAlign:'right'}}>
+                                    <div style={{fontFamily:'var(--font-display)', fontSize:40, fontWeight:600, color:lvl.color, lineHeight:1}}>{score}</div>
+                                    <div style={{fontSize:11, color:'rgba(24,25,31,0.45)'}}>/100</div>
+                                </div>
+                            </div>
+                            <div style={{display:'flex', alignItems:'center', gap:8}}>
+                                <div style={{width:10, height:10, borderRadius:'50%', background:lvl.color, flexShrink:0}}/>
+                                <div style={{fontSize:15, fontWeight:700, color:lvl.color}}>{lvl.name}</div>
+                            </div>
+                        </div>
+                    );
+                })()}
+                <div style={{display:'flex', flexDirection:'column', gap:6}}>
                 {levels.map((l, i) => {
                     const active = secs >= l.min && secs <= l.max;
                     return (
-                        <div key={i} className="aval-level-row">
+                        <div key={i} className="aval-level-row" style={{opacity: active ? 1 : 0.45}}>
                             <div className="aval-level-bar" style={{background: l.color}}/>
-                            <div className="aval-level-name">{l.name}</div>
+                            <div className="aval-level-name" style={{fontWeight: active ? 700 : 500}}>{l.name}</div>
                             <div className="aval-level-range">{l.range}</div>
                             {active && <div className="aval-level-active-dot"/>}
                         </div>
                     );
                 })}
+                </div>
             </>);
         }
 
@@ -2892,7 +2917,7 @@
                 ]}/>
                 <div className="timer-box" onClick={togglePlank} style={{cursor:'pointer', userSelect:'none', marginBottom:20}}>
                     <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.6px', textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>
-                        {plankOn ? 'TOQUE PARA PARAR' : 'TOQUE PARA INICIAR'}
+                        {plankOn ? 'TOQUE PARA PARAR' : plankVal > 0 ? 'TOQUE PARA REFAZER' : 'TOQUE PARA INICIAR'}
                     </div>
                     <div className="timer-row">
                         <div className="timer-n">{mm(secs)}</div>
@@ -2902,9 +2927,36 @@
                         <div className="timer-unit-lbl">SEG</div>
                     </div>
                 </div>
-                <div style={{marginTop:10, fontSize:11, color:'rgba(24,25,31,0.45)', lineHeight:1.5}}>
-                    {plankSecs > 0 ? `${plankSecs}s mantidos — nível ${lvl}` : 'Toque no timer para iniciar'}
-                </div>
+                {plankVal > 0 && !plankOn && (() => {
+                    const plankLevels = [
+                        {name:'Iniciante',    range:'< 60 seg',      min:0,   max:59,       color:'#e87a45'},
+                        {name:'Intermediário',range:'60 – 90 seg',   min:60,  max:89,       color:'#f0c52e'},
+                        {name:'Avançado',     range:'90 – 120 seg',  min:90,  max:119,      color:'#4a8fd9'},
+                        {name:'Elite',        range:'120 – 180 seg', min:120, max:179,      color:'#3db87a'},
+                        {name:'World Class',  range:'> 180 seg',     min:180, max:Infinity, color:'#9b7dd4'},
+                    ];
+                    const activeLvl = plankLevels.find(l => plankSecs >= l.min && plankSecs <= l.max) || plankLevels[0];
+                    const score = Math.min(100, Math.round(plankSecs / 180 * 100));
+                    return (
+                        <div style={{background:'var(--card-cream)', borderRadius:16, padding:'20px', marginBottom:16, border:`2px solid ${activeLvl.color}`}}>
+                            <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU RESULTADO</div>
+                            <div style={{display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:12}}>
+                                <div>
+                                    <div style={{fontFamily:'var(--font-display)', fontSize:52, fontWeight:600, lineHeight:1, color:'var(--text-dark)'}}>{mm(plankSecs)}</div>
+                                    <div style={{fontSize:11, color:'rgba(24,25,31,0.45)', marginTop:4}}>min · seg</div>
+                                </div>
+                                <div style={{textAlign:'right'}}>
+                                    <div style={{fontFamily:'var(--font-display)', fontSize:40, fontWeight:600, color:activeLvl.color, lineHeight:1}}>{score}</div>
+                                    <div style={{fontSize:11, color:'rgba(24,25,31,0.45)'}}>/100</div>
+                                </div>
+                            </div>
+                            <div style={{display:'flex', alignItems:'center', gap:8}}>
+                                <div style={{width:10, height:10, borderRadius:'50%', background:activeLvl.color, flexShrink:0}}/>
+                                <div style={{fontSize:15, fontWeight:700, color:activeLvl.color}}>{activeLvl.name}</div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </>);
         }
 
