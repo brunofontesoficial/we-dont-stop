@@ -1684,40 +1684,96 @@
         const [filter, setFilter]   = useState('Warmup');
         const [exFilter, setExFilter] = useState('Todos');
         const [searchQ, setSearchQ] = useState('');
-        const filters = [{label:'Warmup',count:3},{label:'Alongamento',count:3},{label:'Exercícios',count:142}];
-        const exFilters = ['Todos','Força','Endurance','Core','Mobilidade'];
+        const filters = [{label:'Warmup',count:6},{label:'Alongamento',count:6},{label:'Exercícios',count:67}];
+        const exFilters = ['Todos','Vela','Força','Endurance','Core','Mobilidade'];
 
         const warmupItems = [
-            { name:'Warmup·Pré-vela',  desc:'Ativação dinâmica antes de sair do cais. Ombros, quadril, core.', meta:'8min · 6 movimentos',  iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
-            { name:'Warmup·Pré-força', desc:'Mobilidade articular + ativação glúteo + core prep.',             meta:'10min · 8 movimentos', iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
-            { name:'Warmup·Curto',     desc:'Só 5min. Pra dias corridos. Respiração + ombros + quadril.',      meta:'5min · 4 movimentos',  iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
+            { name:'Warmup · Pré-vela',      desc:'Ativação dinâmica antes de sair do cais. Ombros, quadril, core.',     meta:'8 min · 6 movimentos',  iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
+            { name:'Warmup · Pré-força',     desc:'Mobilidade articular + ativação glúteo + core prep.',                 meta:'10 min · 8 movimentos', iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
+            { name:'Warmup · Curto',         desc:'Só 5min. Pra dias corridos. Respiração + ombros + quadril.',          meta:'5 min · 4 movimentos',  iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
+            { name:'Warmup · Pré-endurance', desc:'Ativa sistema aeróbico. Leg swing, mobilidade torácica, trote leve.', meta:'8 min · 5 movimentos',  iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
+            { name:'Warmup · Pré-regata',    desc:'Hiking ativado + ombros + respiração antes de largar.',               meta:'6 min · 5 movimentos',  iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
+            { name:'Warmup · Matinal',       desc:'Desperta o corpo. Cat-cow, respiração 360°, mobilidade quadril.',     meta:'7 min · 6 movimentos',  iconType:'bolt', bg:'rgba(240,197,46,0.18)' },
         ];
         const alongItems = [
-            { name:'Alongamento·Pós-vela', desc:'Descompressão de lombar, psoas, isquios e peitoral.',         meta:'12min · 8 movimentos', iconType:'wave', bg:'rgba(74,143,217,0.12)' },
-            { name:'Alongamento·Noite',    desc:'Relaxa pro sono. Yin-style, respiração 4-7-8.',                meta:'15min · 10 movimentos',iconType:'wave', bg:'rgba(74,143,217,0.12)' },
-            { name:'Alongamento·Rápido',   desc:'Pós-treino. Quadríceps, ombros, coluna torácica.',             meta:'6min · 5 movimentos',  iconType:'wave', bg:'rgba(155,125,212,0.12)' },
+            { name:'Alongamento · Pós-vela',      desc:'Descompressão de lombar, psoas, isquios e peitoral.',           meta:'12 min · 8 movimentos', iconType:'wave', bg:'rgba(74,143,217,0.12)'  },
+            { name:'Alongamento · Noite',         desc:'Relaxa pro sono. Yin-style, respiração 4-7-8.',                 meta:'15 min · 10 movimentos',iconType:'wave', bg:'rgba(74,143,217,0.12)'  },
+            { name:'Alongamento · Rápido',        desc:'Pós-treino. Quadríceps, ombros, coluna torácica.',              meta:'6 min · 5 movimentos',  iconType:'wave', bg:'rgba(155,125,212,0.12)' },
+            { name:'Alongamento · Pós-força',     desc:'Peito, dorsal, quadríceps e posterior. Recuperação muscular.',  meta:'12 min · 8 movimentos', iconType:'wave', bg:'rgba(155,125,212,0.12)' },
+            { name:'Alongamento · Pós-endurance', desc:'Isquiotibiais, panturrilha, quadril e lombar pós-corrida.',     meta:'10 min · 6 movimentos', iconType:'wave', bg:'rgba(74,143,217,0.12)'  },
+            { name:'Alongamento · Yin completo',  desc:'Posturas de 3–5 min cada. Sistema nervoso parassimpático.',     meta:'30 min · 7 posturas',   iconType:'wave', bg:'rgba(155,125,212,0.12)' },
         ];
         const exItems = [
-            { code:'FOR', name:'Goblet Squat',         sub:'4 séries · 8 reps · pernas',         fav:true,  cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
-            { code:'VEL', name:'Hike position hold',   sub:'Isométrico · 45s · específico vela',  fav:true,  cat:'Força',    bg:'rgba(74,143,217,0.1)'  },
-            { code:'COR', name:'Turkish Get-up',       sub:'3×5 cada lado · full body',           fav:false, cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
-            { code:'COR', name:'Copenhagen plank',     sub:'3×30s · adutores',                    fav:false, cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
-            { code:'FOR', name:'Pull-up',               sub:'4 séries · 8 reps · dorsal',          fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
-            { code:'MOB', name:'Dead Hang',             sub:'3 séries · 45s · ombro + preensão',   fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)'},
-            { code:'FOR', name:'Push-up',               sub:'4 séries · 15 reps · peito',          fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
-            { code:'COR', name:'Hollow hold',           sub:'4×20s · core anterior',               fav:true,  cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
-            { code:'COR', name:'Dead bug',              sub:'3×10 reps · estabilização',           fav:false, cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
-            { code:'END', name:'Corrida Z2',            sub:'30–40 min · zona 2 aeróbica',         fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
-            { code:'END', name:'Bike Z2',               sub:'40–50 min · cadência 85rpm',          fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
-            { code:'END', name:'Ergômetro Z2',          sub:'20 min · split 2:10–2:20/500m',       fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
-            { code:'MOB', name:'Pigeon pose',           sub:'2×60s cada lado · quadril',           fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)'},
-            { code:'MOB', name:'90/90 de quadril',      sub:'2×60s cada lado · rotação',           fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)'},
-            { code:'FOR', name:'Agachamento',           sub:'4×12 reps · funcional',               fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
-            { code:'FOR', name:'Romanian deadlift',     sub:'3×10 reps · posterior',               fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
-            { code:'COR', name:'Prancha lateral',       sub:'3×40s cada lado',                     fav:false, cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
-            { code:'FOR', name:'Inverted row',          sub:'3×10 reps · costas',                  fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
+            // ── VELA ───────────────────────────────────────────────────────────────
+            { code:'VEL', name:'Hike position hold',          sub:'3×45s · posição de hiking sustentada',            fav:true,  cat:'Vela',      bg:'rgba(74,143,217,0.1)'  },
+            { code:'VEL', name:'Hiking bench isométrico',     sub:'5×máximo · ângulo 45° · pausa ativa',             fav:true,  cat:'Vela',      bg:'rgba(74,143,217,0.1)'  },
+            { code:'VEL', name:'Wall sit',                    sub:'3×60–90s · resistência de quadríceps',            fav:true,  cat:'Vela',      bg:'rgba(74,143,217,0.1)'  },
+            { code:'VEL', name:'Single-leg stance',           sub:'3×30s cada · equilíbrio unipodal',                fav:false, cat:'Vela',      bg:'rgba(74,143,217,0.1)'  },
+            { code:'VEL', name:'Step-up lastrado',            sub:'3×12 cada · força funcional de vela',             fav:false, cat:'Vela',      bg:'rgba(74,143,217,0.1)'  },
+            { code:'VEL', name:'Isometria de quadríceps',     sub:'2×60s · ângulo 90° · sem movimento',              fav:false, cat:'Vela',      bg:'rgba(74,143,217,0.1)'  },
+            { code:'VEL', name:'Core rotation náutico',       sub:'3×12 cada · rotação de bordo com elástico',       fav:false, cat:'Vela',      bg:'rgba(74,143,217,0.1)'  },
+            { code:'VEL', name:'Equilíbrio em bosu',          sub:'3×30s · propriocepção em superfície instável',    fav:false, cat:'Vela',      bg:'rgba(74,143,217,0.1)'  },
+            // ── FORÇA ──────────────────────────────────────────────────────────────
+            { code:'FOR', name:'Goblet Squat',                sub:'4×8 reps · mobilidade + força de pernas',         fav:true,  cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Pull-up',                     sub:'4×8 reps · dorsal + bíceps',                      fav:true,  cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Push-up',                     sub:'4×15 reps · peito + tríceps + core',              fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Agachamento livre',           sub:'4×12 reps · funcional completo',                  fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Romanian deadlift',           sub:'3×10 reps · posterior de coxa',                   fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Inverted row',                sub:'3×10 reps · costas sem barra',                    fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Farmer carry',                sub:'3×30m · preensão + core + postura',               fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Kettlebell swing',            sub:'4×15 reps · posterior + potência de quadril',     fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Overhead press',              sub:'3×10 reps · ombros + estabilidade de core',       fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Bulgarian split squat',       sub:'3×10 cada · unilateral de pernas',                fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Box jump',                    sub:'4×8 reps · potência de membros inferiores',       fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Hip thrust',                  sub:'4×12 reps · glúteo máximo',                       fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Dumbbell row',                sub:'3×10 cada · dorsal unilateral',                   fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Floor press',                 sub:'4×10 reps · peitoral + tríceps',                  fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Single-leg deadlift',         sub:'3×8 cada · equilíbrio + posterior',               fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Agachamento + remada',        sub:'3×12 reps · circuito funcional combinado',        fav:false, cat:'Força',     bg:'rgba(24,25,31,0.06)'   },
+            // ── ENDURANCE ──────────────────────────────────────────────────────────
+            { code:'END', name:'Corrida Z2',                  sub:'30–40 min · ritmo conversacional',                fav:true,  cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Bike Z2',                     sub:'40–50 min · cadência 85rpm · zona 2',             fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Ergômetro Z2',                sub:'20–25 min · split 2:10–2:20/500m',               fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Corrida Z3 – limiar',         sub:'3×8 min · ritmo de limiar de lactato',            fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Fartlek',                     sub:'30 min · variações livres de ritmo',              fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'HIIT corrida',                sub:'8×400m · 90s de descanso entre tiros',            fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Bike Z4 – VO₂max',           sub:'5×5 min · intervalo de alta intensidade',         fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Corrida longa Z2',            sub:'60–90 min · base aeróbica fundante',              fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Natação Z2',                  sub:'30–40 min · técnica + aeróbico',                  fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Tempo run',                   sub:'20 min contínuos · ritmo de limiar constante',    fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Ergômetro intervalos',        sub:'8×500m · ritmo de regata · 2 min descanso',       fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Bike longa Z2',               sub:'90–120 min · fundo aeróbico de base',             fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            // ── CORE ───────────────────────────────────────────────────────────────
+            { code:'COR', name:'Turkish Get-up',              sub:'3×5 cada lado · full body integrado',             fav:true,  cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Copenhagen plank',            sub:'3×30s · adutores + estabilidade pélvica',         fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Hollow hold',                 sub:'4×20–30s · tensão anterior de core',              fav:true,  cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Dead bug',                    sub:'3×10 reps · estabilização lombar',                fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Prancha lateral',             sub:'3×40s cada lado · oblíquos',                      fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Prancha frontal',             sub:'4×30–60s · isometria de core',                    fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Mountain climbers',           sub:'3×20 reps · core dinâmico + cardio',              fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Ab wheel rollout',            sub:'3×8 reps · extensão total de core',               fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Pallof press',                sub:'3×12 cada · anti-rotação de core',                fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Bird dog',                    sub:'3×10 cada · estabilidade lombar',                 fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'L-sit',                       sub:'3×15–20s · força de quadril + core',              fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Toes to bar',                 sub:'3×10 reps · core + lats + controle',              fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'V-up',                        sub:'3×12 reps · core completo',                       fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'GHD sit-up',                  sub:'3×15 reps · amplitude total',                     fav:false, cat:'Core',      bg:'rgba(200,75,56,0.08)'  },
+            // ── MOBILIDADE ─────────────────────────────────────────────────────────
+            { code:'MOB', name:'Dead Hang',                   sub:'3×45s · ombro + preensão + coluna',               fav:true,  cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Pigeon pose',                 sub:'2×60s cada · quadril posterior',                  fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'90/90 de quadril',            sub:'2×60s cada · rotação interna e externa',          fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Foam roll · pernas',          sub:'3–4 min · quadríceps + IT band + panturrilha',    fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Foam roll · costas',          sub:'2–3 min · coluna torácica + dorsal',              fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Cat-cow',                     sub:'2×10 reps · mobilidade espinhal segmentar',       fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Torção torácica',             sub:'3×10 reps · rotação torácica bilateral',          fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Abertura de quadril',         sub:'2×45s · flexores + cápsula anterior',             fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Mobilidade de ombro',         sub:'2×10 reps · glenoumeral + escapular',             fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:"World's greatest stretch",    sub:'2×5 cada · full body · lunge rotativo',           fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Scorpion stretch',            sub:'2×8 cada · lombar + quadril + torácica',          fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Hip flexor stretch',          sub:'2×60s cada · psoas + ilíaco',                     fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Lat stretch',                 sub:'2×45s cada · grande dorsal + ombro',              fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
+            { code:'MOB', name:'Respiração diafragmática',    sub:'2×10 reps · controle + expansão 360°',            fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)' },
         ];
-        const codeFilter = { 'Força':'FOR', 'Endurance':'END', 'Core':'COR', 'Mobilidade':'MOB' };
         const filteredEx = exItems.filter(e => {
             const matchCat = exFilter === 'Todos' || e.cat === exFilter;
             const q = searchQ.toLowerCase();
@@ -1733,7 +1789,7 @@
             <div>
                 <div className="bib-header pad">
                     <div className="bib-top">
-                        <div className="bib-count">156 BLOCOS · 142 EXERCÍCIOS</div>
+                        <div className="bib-count">12 BLOCOS · 67 EXERCÍCIOS</div>
                         <div className="bib-search">
                             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                                 <circle cx="8" cy="8" r="5.5" stroke="var(--muted-dark)" strokeWidth="1.5"/>
@@ -1773,7 +1829,7 @@
                     </div>
                 ) : (
                     <div style={{padding:'0 20px 24px'}}>
-                        <div className="bib-section-label">142 EXERCÍCIOS</div>
+                        <div className="bib-section-label">{filteredEx.length} EXERCÍCIOS{exFilter !== 'Todos' ? ` · ${exFilter.toUpperCase()}` : ''}{searchQ ? ` · "${searchQ}"` : ''}</div>
                         <div className="bib-section-title" style={{marginBottom:12}}>Biblioteca</div>
                         <div style={{position:'relative',marginBottom:14}}>
                             <svg style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)'}} width="16" height="16" viewBox="0 0 16 16" fill="none">
