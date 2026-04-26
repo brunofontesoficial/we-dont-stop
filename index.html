@@ -1959,47 +1959,122 @@
     }
 
     function TelaModuRegata({ onClose }) {
-        const bars = [
-            { day: '21', pct: 0.90, today: false },
-            { day: '22', pct: 0.85, today: false },
-            { day: '23', pct: 0.80, today: false },
-            { day: '24', pct: 0.75, today: false },
-            { day: '25', pct: 0.55, today: true  },
-            { day: '26', pct: 0.35, today: false },
-            { day: '27', pct: 0.25, today: false },
-            { day: '28', pct: 0.20, today: false },
-        ];
+        const TAPER_DAYS = 8;
+        const nextEvent = getNextEvent();
+        const daysLeft = nextEvent ? getRaceDaysLeft(nextEvent.date) : null;
+
+        // Build taper bar data from race date
+        const bars = React.useMemo(() => {
+            const today = new Date(); today.setHours(0,0,0,0);
+            return Array.from({length: TAPER_DAYS}, (_, i) => {
+                const daysBeforeRace = TAPER_DAYS - 1 - i; // 7..0
+                const pct = 0.20 + 0.70 * (daysBeforeRace / (TAPER_DAYS - 1));
+                let barDay = '';
+                let isToday = false;
+                if (nextEvent) {
+                    const raceDt = new Date(nextEvent.date + 'T00:00:00');
+                    const barDt = new Date(raceDt);
+                    barDt.setDate(raceDt.getDate() - daysBeforeRace);
+                    barDay = String(barDt.getDate());
+                    isToday = barDt.getTime() === today.getTime();
+                } else {
+                    const barDt = new Date(today);
+                    barDt.setDate(today.getDate() + i);
+                    barDay = String(barDt.getDate());
+                    isToday = i === 0;
+                }
+                return { day: barDay, pct, today: isToday, daysBeforeRace };
+            });
+        }, [nextEvent && nextEvent.date]);
+
+        function barClass(b) {
+            if (b.today) return 'taper-bar-today';
+            if (daysLeft === null || daysLeft > 7) return 'taper-bar-taper';
+            if (daysLeft < 0) return 'taper-bar-base';
+            return b.daysBeforeRace > daysLeft ? 'taper-bar-base' : 'taper-bar-taper';
+        }
+
+        // Event display
+        let raceName = 'SEM EVENTO PRÓXIMO';
+        let dateLabel = '–';
+        if (nextEvent) {
+            const parts = [nextEvent.name, nextEvent.location].filter(Boolean);
+            raceName = parts.join(' · ').toUpperCase();
+            const dt = new Date(nextEvent.date + 'T00:00:00');
+            const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+            dateLabel = `${dt.getDate()} ${meses[dt.getMonth()]}`;
+        }
+
+        // Session recommendation based on daysLeft
+        function getSessionInfo() {
+            if (daysLeft === null || daysLeft > TAPER_DAYS) {
+                const txt = daysLeft !== null ? `Taper começa em ${daysLeft - TAPER_DAYS + 1} dias.` : 'Adicione um evento no calendário para ativar o taper.';
+                return { title: 'Treino Normal', note: txt, badge: null, reduction: null };
+            }
+            if (daysLeft === 0) return { title: 'Dia de Regata', note: 'Foco total. Aquecimento leve + hidratação.', badge: 'REGATA', reduction: null };
+            if (daysLeft < 0) return { title: 'Pós-Regata', note: 'Recuperação ativa. Mobilidade e descanso.', badge: null, reduction: null };
+            const pctCut = Math.round((1 - (0.20 + 0.70 * (daysLeft / (TAPER_DAYS - 1)))) * 100);
+            if (daysLeft >= 5) return { title: 'Força & Core', note: `Reduzi 1 série nos compostos. Core mantém. Mobilidade +5min.`, badge: 'TAPER', reduction: pctCut };
+            if (daysLeft >= 2) return { title: 'Ativação Neuromuscular', note: 'Séries curtas, alta velocidade. Sem falha muscular.', badge: 'TAPER', reduction: pctCut };
+            return { title: 'Descanso Ativo', note: 'Mobilidade 20min. Nada mais. Preserva energia para amanhã.', badge: 'TAPER', reduction: null };
+        }
+        const sessionInfo = getSessionInfo();
+
+        // Pre-race checklist (auto-checked based on proximity)
+        const checklist = (daysLeft !== null && daysLeft >= 0 && daysLeft <= 14) ? [
+            { txt: 'Verificar equipamento e vela',    done: daysLeft <= 10 },
+            { txt: 'Hidratação — 3L/dia',             done: daysLeft <= 7  },
+            { txt: 'Logística e transporte',          done: daysLeft <= 4  },
+            { txt: 'Descanso — dormir 8h por noite',  done: false          },
+        ] : [];
+
+        // Taper description
+        let taperDesc = 'Prévia do taper automático nos últimos 8 dias.';
+        if (daysLeft !== null && daysLeft >= 0 && daysLeft <= 7) {
+            const pctCut = Math.round((1 - (0.20 + 0.70 * (daysLeft / (TAPER_DAYS - 1)))) * 100);
+            taperDesc = `Volume reduz ${pctCut}% até a regata.`;
+        } else if (daysLeft !== null && daysLeft < 0) {
+            taperDesc = 'Ciclo de taper concluído.';
+        }
+
         const wind = [
             { dow:'QUI', dd:'24', dir:'NE', kt:8,  raj:12, onda:'0.4k', temp:'23', q:'LEVE',  qc:'wq-leve'  },
             { dow:'SEX', dd:'25', dir:'E',  kt:14, raj:19, onda:'0.8k', temp:'24', q:'BOM',   qc:'wq-bom'   },
             { dow:'SAB', dd:'26', dir:'SE', kt:18, raj:24, onda:'1.2k', temp:'23', q:'FORTE', qc:'wq-forte' },
             { dow:'DOM', dd:'27', dir:'E',  kt:12, raj:16, onda:'0.6k', temp:'23', q:'IDEAL', qc:'wq-ideal' },
         ];
+
         return (
             <div className="overlay">
                 <div className="overlay-topbar">
                     <div className="overlay-close" onClick={onClose}>
                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1L11 11M11 1L1 11" stroke="#f5f0e8" strokeWidth="2" strokeLinecap="round"/></svg>
                     </div>
-                    <div className="overlay-title-lbl" style={{color:'var(--card-coral)'}}>MODO REGATA · ATIVO</div>
+                    <div className="overlay-title-lbl" style={{color:'var(--card-coral)'}}>MODO REGATA · {nextEvent ? 'ATIVO' : 'SEM EVENTO'}</div>
                 </div>
                 <div className="mr-hero">
-                    <div className="mr-regata-label">BRASILEIRO DE LASER RADIAL · ILHABELA</div>
-                    <div className="mr-countdown-row">
-                        <div className="mr-big-num">12</div>
-                        <div className="mr-dias">dias</div>
-                    </div>
-                    <div className="mr-dates">2 – 5 mai</div>
+                    <div className="mr-regata-label">{raceName}</div>
+                    {nextEvent ? (
+                        <div className="mr-countdown-row">
+                            <div className="mr-big-num">{daysLeft >= 0 ? daysLeft : Math.abs(daysLeft)}</div>
+                            <div className="mr-dias">{daysLeft > 0 ? 'dias' : daysLeft === 0 ? 'hoje!' : 'dias atrás'}</div>
+                        </div>
+                    ) : (
+                        <div style={{margin:'24px 0',fontSize:13,color:'rgba(245,240,232,0.45)',lineHeight:1.6,textAlign:'center'}}>
+                            Adicione um evento no perfil<br/>para ativar o modo regata.
+                        </div>
+                    )}
+                    <div className="mr-dates">{dateLabel}</div>
                     <div className="taper-card">
                         <div className="taper-top">
                             <div className="taper-label">TAPER AUTOMÁTICO · 8 DIAS</div>
                             <div className="taper-auto-badge">AUTO</div>
                         </div>
-                        <div className="taper-title">Volume reduz 75% até o primeiro barlavento.</div>
+                        <div className="taper-title">{taperDesc}</div>
                         <div className="today-label">HOJE</div>
                         <div className="taper-bars">
                             {bars.map((b,i) => (
-                                <div key={i} className={`taper-bar ${b.today?'taper-bar-today':i>=4?'taper-bar-taper':'taper-bar-base'}`}
+                                <div key={i} className={`taper-bar ${barClass(b)}`}
                                     style={{height:`${b.pct*100}%`}}/>
                             ))}
                         </div>
@@ -2007,16 +2082,15 @@
                             {bars.map((b,i) => <div key={i} className="taper-x-lbl">{b.day}</div>)}
                         </div>
                         <div className="taper-range-labels">
-                            <span className="taper-range-lbl">BASE 92%</span>
-                            <span className="taper-range-lbl">REGATA 30%</span>
-                            <span className="taper-range-lbl">DEPOIS</span>
+                            <span className="taper-range-lbl">BASE 90%</span>
+                            <span className="taper-range-lbl">REGATA 20%</span>
                         </div>
                     </div>
                 </div>
                 <div className="wind-section">
                     <div className="wind-header">
                         <div className="wind-label">PREVISÃO · WINDY</div>
-                        <div className="wind-updated">+ atualizado 1h</div>
+                        <div className="wind-updated">em breve</div>
                     </div>
                     {wind.map((w,i) => (
                         <div key={i} className="wind-row">
@@ -2037,32 +2111,29 @@
                     </div>
                     <div style={{background:'var(--card-navy)',borderRadius:16,padding:'16px 18px',marginBottom:20}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-                            <div style={{fontFamily:'var(--font-display)',fontSize:26,fontStyle:'italic',fontWeight:500,color:'var(--text-cream)'}}>Força &amp; Core</div>
-                            <div style={{background:'var(--card-coral)',color:'#fff',fontSize:9,fontWeight:700,letterSpacing:1,padding:'3px 9px',borderRadius:4,textTransform:'uppercase',flexShrink:0,marginLeft:10}}>TAPER</div>
+                            <div style={{fontFamily:'var(--font-display)',fontSize:26,fontStyle:'italic',fontWeight:500,color:'var(--text-cream)'}}>{sessionInfo.title}</div>
+                            {sessionInfo.badge && <div style={{background:'var(--card-coral)',color:'#fff',fontSize:9,fontWeight:700,letterSpacing:1,padding:'3px 9px',borderRadius:4,textTransform:'uppercase',flexShrink:0,marginLeft:10}}>{sessionInfo.badge}</div>}
                         </div>
-                        <div style={{fontSize:12,color:'rgba(245,240,232,0.5)',marginBottom:10}}>52min → 44min · -15% volume</div>
-                        <div style={{fontSize:12,color:'rgba(245,240,232,0.65)',lineHeight:1.5}}>Reduzi 1 série nos compostos pra preservar energia. Core mantém. Mobilidade +5min.</div>
+                        {sessionInfo.reduction !== null && <div style={{fontSize:12,color:'rgba(245,240,232,0.5)',marginBottom:10}}>-{sessionInfo.reduction}% volume</div>}
+                        <div style={{fontSize:12,color:'rgba(245,240,232,0.65)',lineHeight:1.5}}>{sessionInfo.note}</div>
                     </div>
-                    <div style={{marginBottom:10,fontSize:9,fontWeight:600,letterSpacing:1.6,textTransform:'uppercase',color:'var(--muted-dark)'}}>
-                        PRÉ-REGATA · 12 DIAS
-                    </div>
-                    {[
-                        {txt:'Calibrar vela com novo cabo',    done:true},
-                        {txt:'Hidratação — 3L/dia a partir de qui', done:true},
-                        {txt:'Ajustar casting com Bruno (qui 17h)', done:false},
-                        {txt:'Logística de transporte Ilhabela',    done:false},
-                    ].map((item,i) => (
-                        <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderBottom:'1px solid rgba(245,240,232,0.06)'}}>
-                            <div style={{width:20,height:20,borderRadius:6,flexShrink:0,
-                                background:item.done?'var(--card-coral)':'transparent',
-                                border:item.done?'none':'1.5px solid rgba(245,240,232,0.2)',
-                                display:'flex',alignItems:'center',justifyContent:'center'}}>
-                                {item.done && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    {checklist.length > 0 && <div>
+                        <div style={{marginBottom:10,fontSize:9,fontWeight:600,letterSpacing:1.6,textTransform:'uppercase',color:'var(--muted-dark)'}}>
+                            PRÉ-REGATA · {daysLeft} {daysLeft === 1 ? 'DIA' : 'DIAS'}
+                        </div>
+                        {checklist.map((item,i) => (
+                            <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderBottom:'1px solid rgba(245,240,232,0.06)'}}>
+                                <div style={{width:20,height:20,borderRadius:6,flexShrink:0,
+                                    background:item.done?'var(--card-coral)':'transparent',
+                                    border:item.done?'none':'1.5px solid rgba(245,240,232,0.2)',
+                                    display:'flex',alignItems:'center',justifyContent:'center'}}>
+                                    {item.done && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                </div>
+                                <div style={{fontSize:13,color:item.done?'rgba(245,240,232,0.35)':'rgba(245,240,232,0.8)',
+                                    textDecoration:item.done?'line-through':'none'}}>{item.txt}</div>
                             </div>
-                            <div style={{fontSize:13,color:item.done?'rgba(245,240,232,0.35)':'rgba(245,240,232,0.8)',
-                                textDecoration:item.done?'line-through':'none'}}>{item.txt}</div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>}
                 </div>
             </div>
         );
@@ -3476,7 +3547,7 @@
         return (S[type] && S[type][tier]) || SESSION_TEMPLATES[type] || [];
     }
 
-    function TelaSessaoDetalhe({ session, dayLabel, weekName, onBack }) {
+    function TelaSessaoDetalhe({ session, dayLabel, weekName, weekIdx, onBack, openSession }) {
         const b = (PLAN_BADGE[session.type] || PLAN_BADGE['forca']);
         const [cardioMode, setCardioModeState] = useState(getCardioMode);
         function pickCardio(m) { setCardioModeState(m); saveCardioMode(m); }
@@ -3540,13 +3611,13 @@
                     </div>
                 ))}
                 <div className="sd-footer">
-                    <button className="sd-cta">Iniciar sessão →</button>
+                    <button className="sd-cta" onClick={() => openSession?.({ day: session, weekIdx })}>Iniciar sessão →</button>
                 </div>
             </div>
         );
     }
 
-    function TelaPlano() {
+    function TelaPlano({ openSession }) {
         const [week, setWeek] = useState(getWeekIdx);
         const [selected, setSelected] = useState(null);
         const w = PLAN_WEEKS.find(x => x.id === week);
@@ -3556,6 +3627,8 @@
                 session={selected.day}
                 dayLabel={`${PLAN_DAYS[selected.idx]} · S${week}`}
                 weekName={w.name}
+                weekIdx={week}
+                openSession={openSession}
                 onBack={() => setSelected(null)}/>;
         }
 
@@ -3643,7 +3716,7 @@
         const renderTab = () => {
             switch (tab) {
                 case 'hoje':      return <TelaHoje      key={refreshKey} setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
-                case 'plano':     return <TelaPlano/>;
+                case 'plano':     return <TelaPlano openSession={openSession}/>;
                 case 'testes':    return <TelaTestes setModal={setModal}/>;
                 case 'biblioteca':return <TelaBiblioteca/>;
                 case 'pulso':     return <TelaPulso/>;
