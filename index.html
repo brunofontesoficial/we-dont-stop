@@ -811,6 +811,26 @@
         const today = new Date(); today.setHours(0,0,0,0);
         return Math.ceil((race - today) / 86400000);
     }
+    function getEvents() {
+        try {
+            const stored = JSON.parse(localStorage.getItem('regata_events') || 'null');
+            if (stored) return stored;
+            const p = getProfile();
+            if (p.raceName && p.raceDate) {
+                return [{ id: '0', name: p.raceName, date: p.raceDate, location: p.raceLocation || '' }];
+            }
+            return [];
+        } catch { return []; }
+    }
+    function saveEvents(evs) {
+        try { localStorage.setItem('regata_events', JSON.stringify(evs)); } catch {}
+    }
+    function getNextEvent() {
+        const today = new Date(); today.setHours(0,0,0,0);
+        return getEvents()
+            .filter(e => new Date(e.date+'T00:00:00') >= today)
+            .sort((a,b) => a.date.localeCompare(b.date))[0] || null;
+    }
     function getGreeting() {
         const h = new Date().getHours();
         if (h < 12) return 'BOM DIA';
@@ -886,7 +906,8 @@
         const totalMs = sess && sess.totalMs ? sess.totalMs : 0;
         const totalMin = Math.floor(totalMs / 60000);
         const profile = getProfile();
-        const raceDaysLeft = getRaceDaysLeft(profile.raceDate);
+        const nextEvent = getNextEvent();
+        const raceDaysLeft = nextEvent ? getRaceDaysLeft(nextEvent.date) : null;
         const aval = getAvaliacao();
         const avalLevelNames = ['Iniciante','Intermediário','Avançado','Elite','World Class'];
         const avalHasHiking = aval && aval.esporte === 'velejador' && aval.tipoBarco === 'hiking';
@@ -990,8 +1011,8 @@
                         <div className="icon-box icon-box-coral"><SailIcon/></div>
                         <div className="readiness-body">
                             <div className="card-label">MODO REGATA · ATIVO</div>
-                            <div className="card-title-serif">{profile.raceName}</div>
-                            <div className="card-sub">em {raceDaysLeft} dias · {profile.raceLocation}</div>
+                            <div className="card-title-serif">{nextEvent ? nextEvent.name : profile.raceName}</div>
+                            <div className="card-sub">{nextEvent ? `em ${raceDaysLeft} dias · ${nextEvent.location}` : 'sem eventos futuros'}</div>
                         </div>
                         <div className="chevron">›</div>
                     </div>}
@@ -2067,12 +2088,61 @@
         const [profile, setProfile] = React.useState(getProfile);
         const [editing, setEditing] = React.useState(false);
         const [draft, setDraft] = React.useState(null);
-        const raceDaysLeft = getRaceDaysLeft(profile.raceDate);
+        const [events, setEvents] = React.useState(getEvents);
+        const [eventModal, setEventModal] = React.useState(null); // null | 'add' | event obj
+        const [evDraft, setEvDraft] = React.useState({ name:'', date:'', location:'' });
 
         function startEdit() { setDraft({...profile}); setEditing(true); }
         function cancelEdit() { setEditing(false); setDraft(null); }
         function saveEdit() { saveProfile(draft); setProfile(getProfile()); setEditing(false); setDraft(null); }
         function set(k, v) { setDraft(d => ({...d, [k]: v})); }
+
+        function openAddEvent() { setEvDraft({ name:'', date:'', location:'' }); setEventModal('add'); }
+        function openEditEvent(ev) { setEvDraft({...ev}); setEventModal(ev); }
+        function saveEvent() {
+            if (!evDraft.name || !evDraft.date) return;
+            let updated;
+            if (eventModal === 'add') {
+                updated = [...events, { id: Date.now().toString(), ...evDraft }];
+            } else {
+                updated = events.map(e => e.id === eventModal.id ? { ...e, ...evDraft } : e);
+            }
+            updated.sort((a,b) => a.date.localeCompare(b.date));
+            saveEvents(updated);
+            setEvents(updated);
+            setEventModal(null);
+        }
+        function deleteEvent(id) {
+            const updated = events.filter(e => e.id !== id);
+            saveEvents(updated);
+            setEvents(updated);
+        }
+
+        const today = new Date(); today.setHours(0,0,0,0);
+        const upcoming = events.filter(e => new Date(e.date+'T00:00:00') >= today).sort((a,b)=>a.date.localeCompare(b.date));
+        const past     = events.filter(e => new Date(e.date+'T00:00:00') <  today).sort((a,b)=>b.date.localeCompare(a.date));
+
+        const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        function EventRow({ ev, isPast }) {
+            const d = new Date(ev.date+'T00:00:00');
+            const daysLeft = Math.ceil((d - today) / 86400000);
+            return (
+                <div onClick={() => openEditEvent(ev)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 0',borderBottom:'1px solid rgba(24,25,31,0.06)',cursor:'pointer'}}>
+                    <div style={{width:42,height:48,borderRadius:10,background:isPast?'rgba(24,25,31,0.05)':'#18191f',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <div style={{fontSize:9,fontWeight:700,color:isPast?'rgba(24,25,31,0.35)':'rgba(245,240,232,0.55)',letterSpacing:0.5,textTransform:'uppercase'}}>{MESES[d.getMonth()]}</div>
+                        <div style={{fontSize:18,fontWeight:700,lineHeight:1.1,color:isPast?'rgba(24,25,31,0.35)':'#f5f0e8'}}>{d.getDate()}</div>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:600,color:isPast?'rgba(24,25,31,0.4)':'var(--text-dark)',marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{ev.name}</div>
+                        <div style={{fontSize:11,color:'rgba(24,25,31,0.45)'}}>{ev.location || '—'}</div>
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+                        {!isPast && <div style={{fontSize:11,fontWeight:600,color:'#3db87a'}}>{daysLeft}d</div>}
+                        <button onClick={e=>{e.stopPropagation();deleteEvent(ev.id);}} style={{background:'none',border:'none',padding:'4px 6px',cursor:'pointer',color:'rgba(24,25,31,0.25)',fontSize:16,lineHeight:1}}>×</button>
+                    </div>
+                </div>
+            );
+        }
 
         const INTEGR_DOTS = [
             {l:'W', bg:'#25a244'},
@@ -2134,8 +2204,8 @@
                     {/* QUICK LINKS */}
                     {[
                         {title:'Avaliação inicial', sub: (() => { const a=getAvaliacao(); if(!a) return 'Ainda não feita'; const d=new Date(a.date+'T00:00:00'); const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return `Feita em ${d.getDate()} ${meses[d.getMonth()]}`; })(), action: () => setModal('avaliacao')},
-                        {title:'Modo Regata',       sub: sailingMode ? `${profile.raceName} · ${raceDaysLeft} dias` : 'Desativado', action: () => setModal('modoRegata')},
-                        {title:'Chat com coach',    sub:'3 não lidas',                             action: () => {}},
+                        {title:'Modo Regata',       sub: sailingMode ? `${upcoming[0]?.name || '—'} · ${upcoming[0] ? getRaceDaysLeft(upcoming[0].date)+' dias' : ''}` : 'Desativado', action: () => setModal('modoRegata')},
+                        {title:'Chat com coach',    sub:'3 não lidas', action: () => {}},
                     ].map((l,i) => (
                         <div key={i} className="perf-link" onClick={l.action}>
                             <div className="perf-link-body">
@@ -2145,8 +2215,27 @@
                             <div className="chevron">›</div>
                         </div>
                     ))}
+
+                    {/* CALENDÁRIO DE EVENTOS */}
+                    <div style={{background:'#fff',borderRadius:16,padding:'16px 18px',border:'1px solid rgba(24,25,31,0.07)'}}>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)'}}>CALENDÁRIO · EVENTOS</div>
+                            <button onClick={openAddEvent} style={{background:'#18191f',border:'none',borderRadius:20,padding:'5px 12px',fontSize:11,fontWeight:700,color:'#f5f0e8',cursor:'pointer',letterSpacing:0.3}}>+ ADICIONAR</button>
+                        </div>
+                        {upcoming.length === 0 && past.length === 0 && (
+                            <div style={{padding:'20px 0',textAlign:'center',color:'rgba(24,25,31,0.35)',fontSize:13}}>Nenhum evento ainda</div>
+                        )}
+                        {upcoming.map(ev => <EventRow key={ev.id} ev={ev} isPast={false}/>)}
+                        {past.length > 0 && (
+                            <>
+                                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.4,textTransform:'uppercase',color:'rgba(24,25,31,0.25)',margin:'14px 0 4px'}}>PASSADOS</div>
+                                {past.map(ev => <EventRow key={ev.id} ev={ev} isPast={true}/>)}
+                            </>
+                        )}
+                    </div>
                 </div>
-                {/* ── Modal de edição de perfil ── */}
+
+                {/* ── Modal editar perfil ── */}
                 {editing && draft && (
                     <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'flex-end'}}>
                         <div style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'28px 20px 40px',width:'100%',maxHeight:'85vh',overflowY:'auto'}}>
@@ -2155,23 +2244,44 @@
                                 <button onClick={cancelEdit} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'var(--text-dark)',lineHeight:1}}>×</button>
                             </div>
                             {[
-                                {label:'NOME',           key:'firstName',    type:'text'},
-                                {label:'SOBRENOME',      key:'lastName',     type:'text'},
-                                {label:'PRÓXIMA REGATA', key:'raceName',     type:'text'},
-                                {label:'DATA DA REGATA', key:'raceDate',     type:'date'},
-                                {label:'LOCAL',          key:'raceLocation', type:'text'},
+                                {label:'NOME',      key:'firstName', type:'text'},
+                                {label:'SOBRENOME', key:'lastName',  type:'text'},
                             ].map(f => (
                                 <div key={f.key} style={{marginBottom:18}}>
                                     <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:6}}>{f.label}</div>
-                                    <input
-                                        type={f.type}
-                                        value={draft[f.key] || ''}
-                                        onChange={e => set(f.key, e.target.value)}
-                                        style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,fontWeight:500,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}
-                                    />
+                                    <input type={f.type} value={draft[f.key]||''} onChange={e=>set(f.key,e.target.value)}
+                                        style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,fontWeight:500,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}/>
                                 </div>
                             ))}
                             <button onClick={saveEdit} style={{width:'100%',padding:14,background:'var(--text-dark)',color:'#fff',border:'none',borderRadius:50,fontSize:13,fontWeight:700,letterSpacing:0.5,cursor:'pointer',marginTop:8}}>SALVAR</button>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Modal adicionar/editar evento ── */}
+                {eventModal !== null && (
+                    <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'flex-end'}}>
+                        <div style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'28px 20px 40px',width:'100%',maxHeight:'85vh',overflowY:'auto'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+                                <div style={{fontSize:13,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:'var(--text-dark)'}}>{eventModal==='add'?'Novo evento':'Editar evento'}</div>
+                                <button onClick={()=>setEventModal(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'var(--text-dark)',lineHeight:1}}>×</button>
+                            </div>
+                            {[
+                                {label:'NOME DO EVENTO', key:'name',     type:'text', placeholder:'Ex: Brasileiro Laser'},
+                                {label:'DATA',           key:'date',     type:'date', placeholder:''},
+                                {label:'LOCAL',          key:'location', type:'text', placeholder:'Ex: Ilhabela'},
+                            ].map(f => (
+                                <div key={f.key} style={{marginBottom:18}}>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:6}}>{f.label}</div>
+                                    <input type={f.type} value={evDraft[f.key]||''} placeholder={f.placeholder}
+                                        onChange={e=>setEvDraft(d=>({...d,[f.key]:e.target.value}))}
+                                        style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,fontWeight:500,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}/>
+                                </div>
+                            ))}
+                            <button onClick={saveEvent}
+                                style={{width:'100%',padding:14,background: evDraft.name&&evDraft.date?'var(--text-dark)':'rgba(24,25,31,0.15)',color: evDraft.name&&evDraft.date?'#fff':'rgba(24,25,31,0.3)',border:'none',borderRadius:50,fontSize:13,fontWeight:700,letterSpacing:0.5,cursor:'pointer',marginTop:8}}>
+                                SALVAR EVENTO
+                            </button>
                         </div>
                     </div>
                 )}
