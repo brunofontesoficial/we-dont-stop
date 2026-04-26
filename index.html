@@ -1418,7 +1418,7 @@
                         <div className="carga-info">
                             <div className="overline" style={{marginBottom:4}}>SEMANA {WEEK_IDX}</div>
                             <div className="carga-title">Carga ótima. Siga o plano.</div>
-                            <div className="carga-sub" style={{marginTop:6}}>REC 84% · SONO 7.4h · FC 54</div>
+                            {(() => { const hist = getHistory(); const last7 = hist.filter(h => { const d = new Date(h.date); const now = new Date(); return (now - d) / 864e5 <= 7; }); const avgRpe = last7.length ? (last7.reduce((a,h) => a + (h.rpe||0), 0) / last7.filter(h=>h.rpe).length || 0) : 0; return last7.length > 0 ? <div className="carga-sub" style={{marginTop:6}}>{last7.length} sessões · RPE médio {avgRpe ? avgRpe.toFixed(1) : '—'}</div> : null; })()}
                         </div>
                     </div>
                 </div>
@@ -2070,7 +2070,7 @@
         const [rpeNote,    setRpeNote]    = React.useState('');
         const [swapTarget, setSwapTarget] = React.useState(null);
         const [swapped,    setSwapped]    = React.useState({});
-        const [results,    setResults]    = React.useState({});
+        const [results,    setResults]    = React.useState(() => { const s=getSessionState(); return (s&&s.results)||{}; });
         const [showShare,  setShowShare]  = React.useState(false);
         const [shareData,  setShareData]  = React.useState(null);
         const globalRef    = React.useRef(null);
@@ -2103,7 +2103,7 @@
             if (!currentEx) return;
             const newDone = [...doneIds, currentEx.id];
             setDoneIds(newDone);
-            saveSessionState({ doneIds: newDone });
+            saveSessionState({ doneIds: newDone, results });
         }
 
         function encerrarSessao() {
@@ -2125,6 +2125,7 @@
                 totalMs, isMinimo,
                 rpe: rpeScore || null,
                 note: rpeNote.trim() || '',
+                results,
             });
             const streak = getStreak();
             setShareData({ sessionName: session?.day.name || 'Sessão', totalMs, doneCount: doneIds.length, rpe: rpeScore || null, streakCount: streak.count });
@@ -2871,6 +2872,7 @@
 
                     {/* QUICK LINKS */}
                     {[
+                        {title:'Histórico de treinos', sub: (() => { const h=getHistory(); return h.length ? `${h.length} sessões registradas` : 'Nenhuma sessão ainda'; })(), action: () => setModal('historico')},
                         {title:'Avaliação inicial', sub: (() => { const a=getAvaliacao(); if(!a) return 'Ainda não feita'; const d=new Date(a.date+'T00:00:00'); const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return `Feita em ${d.getDate()} ${meses[d.getMonth()]}`; })(), action: () => setModal('avaliacao')},
                         {title:'Modo Regata',       sub: sailingMode ? `${upcoming[0]?.name || '—'} · ${upcoming[0] ? getRaceDaysLeft(upcoming[0].date)+' dias' : ''}` : 'Desativado', action: () => setModal('modoRegata')},
                         {title:'Chat com coach',    sub:'3 não lidas', action: () => {}},
@@ -3087,6 +3089,107 @@
                     ) : (
                         <div style={{textAlign:'center',padding:'40px 0',color:'rgba(24,25,31,0.35)',fontSize:13}}>Nenhuma sessão registrada ainda.</div>
                     )}
+                </div>
+            </div>
+        );
+    }
+
+    function HistSessionCard({ s, MESES, fmtDuration, rpeColor }) {
+        const hasResults = s.results && Object.values(s.results).some(Boolean);
+        const [expanded, setExpanded] = React.useState(false);
+        const d = new Date(s.date + 'T00:00:00');
+        return (
+            <div style={{background:'rgba(245,240,232,0.05)',borderRadius:16,marginBottom:8,overflow:'hidden',border:'1px solid rgba(245,240,232,0.07)'}}>
+                <div onClick={() => hasResults && setExpanded(e => !e)} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',cursor:hasResults?'pointer':'default'}}>
+                    <div style={{width:38,height:44,borderRadius:10,background:'rgba(245,240,232,0.08)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <div style={{fontSize:16,fontWeight:700,color:'#f5f0e8',lineHeight:1}}>{d.getDate()}</div>
+                        <div style={{fontSize:8,fontWeight:600,color:'rgba(245,240,232,0.4)',letterSpacing:0.5,textTransform:'uppercase'}}>{MESES[d.getMonth()]}</div>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,color:'#f5f0e8',marginBottom:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.sessionName || 'Sessão'}</div>
+                        <div style={{fontSize:11,color:'rgba(245,240,232,0.4)',display:'flex',gap:8,alignItems:'center'}}>
+                            <span>{fmtDuration(s.totalMs)}</span>
+                            {s.isMinimo && <span style={{background:'rgba(240,197,46,0.15)',color:'#f0c52e',borderRadius:4,padding:'1px 5px',fontSize:9,fontWeight:700,letterSpacing:0.5}}>MÍNIMO</span>}
+                        </div>
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                        {s.rpe != null && (
+                            <div style={{width:28,height:28,borderRadius:50,background:rpeColor(s.rpe)+'22',border:`1.5px solid ${rpeColor(s.rpe)}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:rpeColor(s.rpe)}}>{s.rpe}</div>
+                        )}
+                        {hasResults && <span style={{fontSize:14,color:'rgba(245,240,232,0.25)',transform:expanded?'rotate(90deg)':'none',transition:'transform 0.2s',display:'inline-block'}}>›</span>}
+                    </div>
+                </div>
+                {s.note && <div style={{padding:'0 16px 12px',fontSize:12,color:'rgba(245,240,232,0.45)',lineHeight:1.5,fontStyle:'italic'}}>"{s.note}"</div>}
+                {expanded && hasResults && (
+                    <div style={{borderTop:'1px solid rgba(245,240,232,0.07)',padding:'12px 16px',display:'flex',flexDirection:'column',gap:8}}>
+                        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',color:'rgba(245,240,232,0.3)',marginBottom:2}}>RESULTADOS</div>
+                        {Object.entries(s.results).map(([exId, val]) => val ? (
+                            <div key={exId} style={{display:'flex',justifyContent:'space-between',gap:8}}>
+                                <div style={{fontSize:11,color:'rgba(245,240,232,0.45)',flex:1,minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{exId}</div>
+                                <div style={{fontSize:11,fontWeight:600,color:'#f5f0e8',flexShrink:0}}>{val}</div>
+                            </div>
+                        ) : null)}
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    function TelaHistorico({ onClose }) {
+        const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        const hist = React.useMemo(() => [...getHistory()].reverse(), []);
+
+        function fmtDuration(ms) {
+            if (!ms) return '—';
+            const m = Math.round(ms / 60000);
+            if (m < 60) return `${m}min`;
+            return `${Math.floor(m/60)}h${String(m%60).padStart(2,'0')}`;
+        }
+        function rpeColor(rpe) {
+            if (rpe <= 3) return '#3db87a';
+            if (rpe <= 6) return '#f0c52e';
+            if (rpe <= 8) return '#e87a45';
+            return '#c84b38';
+        }
+
+        const byWeek = React.useMemo(() => {
+            const map = {};
+            hist.forEach(h => {
+                const k = h.weekIdx || 0;
+                if (!map[k]) map[k] = [];
+                map[k].push(h);
+            });
+            return Object.entries(map).sort((a,b) => Number(b[0]) - Number(a[0]));
+        }, [hist]);
+
+        return (
+            <div style={{position:'fixed',inset:0,background:'#090f1e',overflowY:'auto',zIndex:200,fontFamily:'var(--font-body)'}}>
+                <div style={{maxWidth:430,margin:'0 auto',paddingBottom:40}}>
+                    <div style={{display:'flex',alignItems:'center',gap:12,padding:'56px 20px 20px'}}>
+                        <button onClick={onClose} style={{background:'rgba(245,240,232,0.08)',border:'none',borderRadius:50,width:36,height:36,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#f5f0e8',fontSize:18,flexShrink:0}}>‹</button>
+                        <div>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:2,textTransform:'uppercase',color:'rgba(245,240,232,0.4)',marginBottom:2}}>SEUS TREINOS</div>
+                            <div style={{fontSize:22,fontWeight:700,color:'#f5f0e8',fontFamily:'var(--font-display)'}}>Histórico</div>
+                        </div>
+                        <div style={{marginLeft:'auto',fontSize:12,color:'rgba(245,240,232,0.35)',fontWeight:600}}>{hist.length} sessões</div>
+                    </div>
+
+                    {hist.length === 0 && (
+                        <div style={{textAlign:'center',padding:'80px 24px',color:'rgba(245,240,232,0.35)',fontSize:14,lineHeight:1.6}}>
+                            Nenhuma sessão registrada ainda.<br/>Complete sua primeira sessão para ver o histórico.
+                        </div>
+                    )}
+
+                    {byWeek.map(([weekIdx, sessions]) => (
+                        <div key={weekIdx} style={{padding:'0 16px',marginBottom:8}}>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.8,textTransform:'uppercase',color:'rgba(245,240,232,0.3)',padding:'16px 4px 8px'}}>
+                                SEMANA {weekIdx}
+                            </div>
+                            {sessions.map((s, i) => (
+                                <HistSessionCard key={i} s={s} MESES={MESES} fmtDuration={fmtDuration} rpeColor={rpeColor}/>
+                            ))}
+                        </div>
+                    ))}
                 </div>
             </div>
         );
@@ -4817,6 +4920,7 @@
         if (modal === 'planos')      return <TelaPlanos       onBack={closeModal}/>;
         if (modal === 'avaliacao')   return <TelaAvaliacao    onClose={closeModal}/>;
         if (modal === 'coach')       return <TelaCoach        onClose={closeModal}/>;
+        if (modal === 'historico')   return <TelaHistorico    onClose={closeModal}/>;
 
         function toggleSailing(v) {
             setSailingMode(v);
