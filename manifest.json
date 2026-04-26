@@ -1,0 +1,25 @@
+{
+  "name": "We Don't Stop",
+  "short_name": "We Don't Stop",
+  "description": "Seu plano de treino para vela de alta performance",
+  "start_url": "/we-dont-stop/",
+  "scope": "/we-dont-stop/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#090f1e",
+  "theme_color": "#e87a45",
+  "icons": [
+    {
+      "src": "/we-dont-stop/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/we-dont-stop/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
