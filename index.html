@@ -2550,6 +2550,9 @@
         const [endType, setEndType] = useState('cooper');
         const [endDist, setEndDist] = useState('2600');
         const [rpe, setRpe] = useState(7);
+        const [useHR, setUseHR] = useState(false);
+        const [hrMax, setHrMax] = useState(185);
+        const [hrRest, setHrRest] = useState(52);
 
         // Step 6: Mobilidade
         const [mobScores, setMobScores] = useState({quadrilPost:null, ombroColuna:null, equilibrio:null, respiracao:null});
@@ -2985,6 +2988,83 @@
                     ))}
                 </div>
                 <div className="rpe-desc">{rpe ? `RPE ${rpe} — ${rpe<=3?'Leve, ainda tem gás':rpe<=6?'Moderado, bom esforço':rpe<=8?'Forte, bem exigido':'Máximo, tudo na mesa'}` : 'Como foi o esforço?'}</div>
+
+                {/* ── FREQUÊNCIA CARDÍACA ── */}
+                <div style={{marginTop:28,paddingTop:20,borderTop:'1px solid rgba(24,25,31,0.08)'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+                        <div>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)'}}>FREQUÊNCIA CARDÍACA</div>
+                            <div style={{fontSize:13,fontWeight:600,color:'var(--text-dark)',marginTop:2}}>Definir zonas de treino</div>
+                        </div>
+                        <button onClick={() => setUseHR(v=>!v)} style={{
+                            padding:'6px 14px', borderRadius:20, border:'none', cursor:'pointer',
+                            fontSize:11, fontWeight:700, letterSpacing:0.5,
+                            background: useHR ? '#18191f' : 'rgba(24,25,31,0.08)',
+                            color: useHR ? '#f5f0e8' : 'rgba(24,25,31,0.45)',
+                            transition:'all 0.2s',
+                        }}>{useHR ? 'ATIVO' : 'OPCIONAL'}</button>
+                    </div>
+                    <div style={{fontSize:12,color:'rgba(24,25,31,0.4)',marginBottom:useHR?18:0,lineHeight:1.4}}>
+                        Use se tiver fita cardíaca. Gera suas zonas personalizadas.
+                    </div>
+
+                    {useHR && (() => {
+                        const HRR = hrMax - hrRest;
+                        const z = (lo, hi) => ({
+                            lo: Math.round(hrRest + lo * HRR),
+                            hi: Math.round(hrRest + hi * HRR),
+                        });
+                        const zones = [
+                            { name:'Z1 · Recuperação', color:'#3db87a', ...z(0.50, 0.60) },
+                            { name:'Z2 · Base aeróbica', color:'#91c96e', ...z(0.60, 0.70) },
+                            { name:'Z3 · Aeróbico',     color:'#f0c52e', ...z(0.70, 0.80) },
+                            { name:'Z4 · Limiar',       color:'#e87a45', ...z(0.80, 0.90) },
+                            { name:'Z5 · Máximo',       color:'#c84b38', lo: Math.round(hrRest + 0.90 * HRR), hi: hrMax },
+                        ];
+                        return (
+                            <div>
+                                <div style={{display:'flex',gap:10,marginBottom:20}}>
+                                    {[
+                                        {label:'FC MÁX. NO TESTE', val:hrMax, set:setHrMax, min:120, max:220, unit:'bpm'},
+                                        {label:'FC REPOUSO', val:hrRest, set:setHrRest, min:30, max:100, unit:'bpm'},
+                                    ].map(f => (
+                                        <div key={f.label} className="aval-num-box" style={{flex:1}}>
+                                            <div className="aval-num-unit-top">{f.label}</div>
+                                            <div className="aval-num-row">
+                                                <div className="aval-num-val">{f.val}</div>
+                                                <div className="aval-num-unit">{f.unit}</div>
+                                            </div>
+                                            <div className="aval-num-stepper">
+                                                <button onClick={() => f.set(v => Math.max(f.min, v-1))}>−</button>
+                                                <button onClick={() => f.set(v => Math.min(f.max, v+1))}>+</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:12}}>
+                                    SUAS ZONAS DE TREINO · KARVONEN
+                                </div>
+                                {zones.map((z,i) => (
+                                    <div key={i} style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                                        <div style={{width:3,height:36,borderRadius:2,background:z.color,flexShrink:0}}/>
+                                        <div style={{flex:1}}>
+                                            <div style={{fontSize:11,fontWeight:700,color:'var(--text-dark)',marginBottom:2}}>{z.name}</div>
+                                            <div style={{height:5,borderRadius:3,background:'rgba(24,25,31,0.07)',overflow:'hidden'}}>
+                                                <div style={{height:'100%',borderRadius:3,background:z.color,width:`${((z.hi - hrRest) / HRR) * 100}%`,transition:'width 0.3s'}}/>
+                                            </div>
+                                        </div>
+                                        <div style={{fontSize:12,fontWeight:700,color:'rgba(24,25,31,0.6)',flexShrink:0,textAlign:'right',minWidth:80}}>
+                                            {z.lo}–{z.hi} <span style={{fontSize:9,fontWeight:400}}>bpm</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div style={{fontSize:11,color:'rgba(24,25,31,0.35)',marginTop:8,lineHeight:1.5}}>
+                                    Fórmula Karvonen · usa FC de reserva para maior precisão.
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
             </>);
         }
 
@@ -3137,7 +3217,18 @@
                         <button className="aval-btn-next"
                             style={{background:'var(--card-yellow)', color:'var(--text-dark)'}}
                             onClick={() => {
-                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria });
+                                const hrZones = useHR ? (() => {
+                                    const HRR = hrMax - hrRest;
+                                    const z = (lo, hi) => ({ lo: Math.round(hrRest + lo*HRR), hi: Math.round(hrRest + hi*HRR) });
+                                    return [
+                                        { name:'Z1 · Recuperação',  color:'#3db87a', ...z(0.50,0.60) },
+                                        { name:'Z2 · Base aeróbica',color:'#91c96e', ...z(0.60,0.70) },
+                                        { name:'Z3 · Aeróbico',     color:'#f0c52e', ...z(0.70,0.80) },
+                                        { name:'Z4 · Limiar',       color:'#e87a45', ...z(0.80,0.90) },
+                                        { name:'Z5 · Máximo',       color:'#c84b38', lo: Math.round(hrRest+0.90*HRR), hi: hrMax },
+                                    ];
+                                })() : null;
+                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria, hrMax: useHR?hrMax:null, hrRest: useHR?hrRest:null, hrZones });
                                 onClose();
                             }}>GERAR PLANO DE 4 SEMANAS</button>
                     )}
