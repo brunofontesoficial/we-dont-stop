@@ -1311,50 +1311,54 @@
                     {ENDURANCE.map((t,i) => <TestItem key={i} t={t}/>)}
                     {(() => {
                         const hist = getAvaliacaoHistory();
-                        if (hist.length < 2) return null;
+                        const showHiking = aval && aval.esporte === 'velejador' && aval.tipoBarco === 'hiking';
                         const pillars = [
-                            {k:'hiking',    l:'Hiking',    c:'#e87a45'},
-                            {k:'core',      l:'Core',      c:'#9b7dd4'},
-                            {k:'forca',     l:'Força',     c:'#c84b38'},
-                            {k:'endurance', l:'Endurance', c:'#2d6b4f'},
-                            {k:'mobilidade',l:'Mobilidade',c:'#4a8fd9'},
+                            ...(showHiking ? [{k:'hiking', l:'Hiking', c:'#e87a45'}] : []),
+                            {k:'core',       l:'Core',       c:'#9b7dd4'},
+                            {k:'forca',      l:'Força',      c:'#c84b38'},
+                            {k:'endurance',  l:'Endurance',  c:'#2d6b4f'},
+                            {k:'mobilidade', l:'Mobilidade', c:'#4a8fd9'},
                         ];
-                        const W = 260, H = 72, pad = 8;
-                        const xs = hist.map((_,i) => pad + i*(W-2*pad)/(hist.length-1));
-                        function PillarChart({p}) {
-                            const vals = hist.map(e => e.scores ? (e.scores[p.k] ?? 0) : 0);
-                            const pts = vals.map((v,i) => `${xs[i]},${H - pad - (v/100)*(H-2*pad)}`).join(' ');
-                            const last = vals[vals.length-1];
-                            const prev = vals[vals.length-2];
-                            const delta = last - prev;
-                            return (
-                                <div style={{marginBottom:18}}>
-                                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:4}}>
-                                        <div style={{fontSize:10, fontWeight:700, letterSpacing:'0.8px', textTransform:'uppercase', color:'rgba(24,25,31,0.5)'}}>{p.l}</div>
-                                        <div style={{display:'flex', alignItems:'baseline', gap:6}}>
-                                            <div style={{fontSize:18, fontWeight:700, fontFamily:'var(--font-display)', color:'var(--text-dark)'}}>{last}</div>
-                                            <div style={{fontSize:10, fontWeight:700, color: delta>=0 ? '#3db87a' : '#c84b38'}}>{delta>=0?'+':''}{delta}</div>
-                                        </div>
-                                    </div>
-                                    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:'block'}}>
-                                        <polyline points={pts} fill="none" stroke={p.c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                        {vals.map((v,i) => (
-                                            <circle key={i} cx={xs[i]} cy={H - pad - (v/100)*(H-2*pad)} r={i===vals.length-1?4:2.5} fill={p.c}/>
-                                        ))}
-                                    </svg>
-                                    <div style={{display:'flex', justifyContent:'space-between', marginTop:2}}>
-                                        {hist.map((e,i) => {
-                                            const d = new Date(e.date+'T00:00:00');
-                                            return <div key={i} style={{fontSize:8, color:'rgba(24,25,31,0.35)', letterSpacing:'0.3px'}}>{d.getDate()}/{d.getMonth()+1}</div>;
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        }
                         return (
                             <div style={{marginTop:28, paddingTop:20, borderTop:'1px solid rgba(24,25,31,0.08)'}}>
-                                <div className="test-section-lbl" style={{marginBottom:16}}>EVOLUÇÃO · PILARES</div>
-                                {pillars.map(p => <PillarChart key={p.k} p={p}/>)}
+                                <div className="test-section-lbl" style={{marginBottom:4}}>EVOLUÇÃO · PILARES</div>
+                                {hist.length < 2 ? (
+                                    <div style={{padding:'20px 0 8px', color:'rgba(24,25,31,0.38)', fontSize:12, lineHeight:1.55}}>
+                                        Faça a segunda avaliação em 8 semanas para ver a curva de evolução por pilar.
+                                    </div>
+                                ) : (() => {
+                                    const W = 260, H = 72, pad = 8;
+                                    const xs = hist.map((_,i) => pad + i*(W-2*pad)/(hist.length-1));
+                                    return pillars.map(p => {
+                                        const vals = hist.map(e => e.scores ? (e.scores[p.k] ?? 0) : 0);
+                                        const pts  = vals.map((v,i) => `${xs[i]},${H-pad-(v/100)*(H-2*pad)}`).join(' ');
+                                        const last  = vals[vals.length-1];
+                                        const delta = last - vals[vals.length-2];
+                                        return (
+                                            <div key={p.k} style={{marginBottom:20, marginTop:14}}>
+                                                <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:4}}>
+                                                    <div style={{fontSize:10, fontWeight:700, letterSpacing:'0.8px', textTransform:'uppercase', color:'rgba(24,25,31,0.5)'}}>{p.l}</div>
+                                                    <div style={{display:'flex', alignItems:'baseline', gap:6}}>
+                                                        <div style={{fontSize:20, fontWeight:700, fontFamily:'var(--font-display)', color:'var(--text-dark)'}}>{last}</div>
+                                                        <div style={{fontSize:11, fontWeight:700, color: delta>=0?'#3db87a':'#c84b38'}}>{delta>=0?'+':''}{delta}</div>
+                                                    </div>
+                                                </div>
+                                                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:'block'}}>
+                                                    <polyline points={pts} fill="none" stroke={p.c} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    {vals.map((v,i) => (
+                                                        <circle key={i} cx={xs[i]} cy={H-pad-(v/100)*(H-2*pad)} r={i===vals.length-1?4.5:2.5} fill={p.c} opacity={i===vals.length-1?1:0.6}/>
+                                                    ))}
+                                                </svg>
+                                                <div style={{display:'flex', justifyContent:'space-between', marginTop:3}}>
+                                                    {hist.map((e,i) => {
+                                                        const d = new Date(e.date+'T00:00:00');
+                                                        return <div key={i} style={{fontSize:8, color:'rgba(24,25,31,0.35)'}}>{d.getDate()}/{d.getMonth()+1}</div>;
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    });
+                                })()}
                             </div>
                         );
                     })()}
