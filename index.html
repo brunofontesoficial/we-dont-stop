@@ -3382,7 +3382,7 @@
                                         { name:'Z5 · Máximo',       color:'#c84b38', lo: Math.round(hrRest+0.90*HRR), hi: hrMax },
                                     ];
                                 })() : null;
-                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria, hrMax: useHR?hrMax:null, hrRest: useHR?hrRest:null, hrZones });
+                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria, diasSemana, equipamentos, hrMax: useHR?hrMax:null, hrRest: useHR?hrRest:null, hrZones });
                                 onClose();
                             }}>GERAR PLANO DE 4 SEMANAS</button>
                     )}
@@ -3403,37 +3403,44 @@
         descanso:  {label:'DESCANSO',   bg:'rgba(24,25,31,0.06)',    c:'rgba(24,25,31,0.35)'},
     };
     function getPlanWeeks(aval) {
-        const scores = aval ? aval.scores : null;
+        const scores     = aval?.scores || null;
+        const dias       = Math.min(Math.max(aval?.diasSemana || 4, 1), 6);
+        const hasHiking  = aval?.esporte === 'velejador' && aval?.tipoBarco === 'hiking';
+        const isJunior   = aval?.categoria === 'Júnior -18';
+
+        // Volume scale for juniors (-20%)
+        function sd(n) { return isJunior ? `${Math.round(n * 0.8)} min` : `${n} min`; }
+
         const DAY_NAMES = {
             endurance: [
-                {name:'Corrida base Z2',       sub:'Ritmo conversacional · zona 2',     dur:'40 min'},
-                {name:'Corrida base Z2',       sub:'Ritmo estável · mesma carga',       dur:'40 min'},
-                {name:'Corrida com fartlek',   sub:'Variação de ritmo · +10 min',       dur:'50 min'},
-                {name:'Corrida leve',          sub:'Ritmo confortável · Z1–Z2',         dur:'30 min'},
+                {name:'Corrida base Z2',       sub:'Ritmo conversacional · zona 2',    dur:sd(40)},
+                {name:'Corrida base Z2',        sub:'Ritmo estável · mesma carga',      dur:sd(40)},
+                {name:'Corrida com fartlek',    sub:'Variação de ritmo',                dur:sd(50)},
+                {name:'Corrida leve',           sub:'Ritmo confortável · Z1–Z2',        dur:sd(30)},
             ],
             hiking: [
-                {name:'Hiking bench + Core',   sub:'Isometria + prancha EMOM',          dur:'35 min'},
-                {name:'Hiking + Hollow rocks', sub:'Qualidade > quantidade',            dur:'35 min'},
-                {name:'Hiking + série extra',  sub:'Adição de 1 série isométrica',      dur:'45 min'},
-                {name:'Técnica · vol. baixo',  sub:'Qualidade · sem fadiga acumulada',  dur:'20 min'},
+                {name:'Hiking bench + Core',   sub:'Isometria + prancha EMOM',         dur:sd(35)},
+                {name:'Hiking + Hollow rocks', sub:'Qualidade > quantidade',            dur:sd(35)},
+                {name:'Hiking + série extra',  sub:'+1 série isométrica',              dur:sd(40)},
+                {name:'Técnica · vol. baixo',  sub:'Qualidade · sem fadiga',           dur:sd(20)},
             ],
             forca: [
-                {name:'Circuito funcional',    sub:'Agachamento · remada · push-up',    dur:'40 min'},
-                {name:'Circuito funcional',    sub:'Técnica limpa · mesma carga',       dur:'40 min'},
-                {name:'Circuito +1 série',     sub:'Volume ligeiramente aumentado',     dur:'50 min'},
-                {name:'Circuito reduzido',     sub:'Metade do volume habitual',         dur:'30 min'},
+                {name:'Circuito funcional',    sub:'Agachamento · remada · push-up',   dur:sd(40)},
+                {name:'Circuito funcional',    sub:'Técnica limpa · mesma carga',      dur:sd(40)},
+                {name:'Circuito +1 série',     sub:'Volume ligeiramente aumentado',    dur:sd(45)},
+                {name:'Circuito reduzido',     sub:'Metade do volume habitual',        dur:sd(25)},
             ],
             core: [
-                {name:'Core funcional',        sub:'Hollow hold · dead bug · prancha',  dur:'30 min'},
-                {name:'Core estabilidade',     sub:'Foco em técnica e respiração',      dur:'30 min'},
-                {name:'Core + volume',         sub:'Série extra · maior densidade',     dur:'35 min'},
-                {name:'Core + mobilidade',     sub:'Suave · sem intensidade alta',      dur:'25 min'},
+                {name:'Core funcional',        sub:'Hollow hold · dead bug · prancha', dur:sd(30)},
+                {name:'Core estabilidade',     sub:'Foco em técnica e respiração',     dur:sd(30)},
+                {name:'Core + volume',         sub:'Série extra · maior densidade',    dur:sd(30)},
+                {name:'Core + mobilidade',     sub:'Suave · sem intensidade alta',     dur:sd(20)},
             ],
             ativo: [
-                {name:'Mobilidade ativa',      sub:'Rolamento + alongamento',           dur:'20 min'},
-                {name:'Mobilidade ativa',      sub:'Rolamento + mobilidade de quadril', dur:'20 min'},
-                {name:'Mobilidade ativa',      sub:'Rolamento + trabalho de ombro',     dur:'20 min'},
-                {name:'Caminhada ativa',       sub:'Recuperação leve',                  dur:'20 min'},
+                {name:'Mobilidade ativa',      sub:'Rolamento + alongamento',          dur:'20 min'},
+                {name:'Mobilidade ativa',      sub:'Mobilidade de quadril',            dur:'20 min'},
+                {name:'Mobilidade ativa',      sub:'Trabalho de ombro',               dur:'20 min'},
+                {name:'Caminhada ativa',       sub:'Recuperação leve',                dur:'20 min'},
             ],
             descanso: [
                 {name:'Descanso', sub:'', dur:''},
@@ -3442,32 +3449,50 @@
                 {name:'Descanso', sub:'', dur:''},
             ],
         };
-        function d(type, wi) { return { type, ...DAY_NAMES[type][wi] }; }
+        function d(type, wi) { return { type, ...DAY_NAMES[type][Math.min(wi,3)] }; }
 
-        const trainable = [
-            {t:'hiking',    s: scores?.hiking    ?? 50},
+        // Build priority pool of session types based on profile weakness
+        const candidates = [
+            hasHiking              ? {t:'hiking',    s: scores?.hiking    ?? 50} : null,
+            {t:'endurance', s: scores?.endurance ?? 50},
             {t:'core',      s: scores?.core      ?? 50},
             {t:'forca',     s: scores?.forca     ?? 50},
-            {t:'endurance', s: scores?.endurance ?? 50},
-        ].sort((a, b) => a.s - b.s);
-        // endurance e core são base do treino de vela — sempre 2× por semana
-        const flex = trainable.filter(x => x.t !== 'endurance' && x.t !== 'core');
-        const [f0, f1] = flex.map(x => x.t); // 2 tipos restantes (hiking, forca), ordenados do mais fraco
-        // 5 slots fixos: endurance×2 + core×2 + 1 slot para o pilar mais fraco dos restantes
-        const types = ['endurance', 'core', f0, 'endurance', 'core'];
+        ].filter(Boolean).sort((a,b) => a.s - b.s); // weakest first
+
+        // Fill session pool up to dias, cycling through types
+        const pool = [];
+        for (let i = 0; pool.length < dias; i++) {
+            pool.push(candidates[i % candidates.length].t);
+        }
+
+        // Week placement patterns (indices 0=SEG … 6=DOM)
+        // train: active session slots, ativo: recovery slot
+        const patterns = {
+            1: { train:[1],          ativo:[4] },
+            2: { train:[0,3],        ativo:[5] },
+            3: { train:[0,2,4],      ativo:[5] },
+            4: { train:[0,1,3,4],    ativo:[2] },
+            5: { train:[0,1,2,3,4],  ativo:[5] },
+            6: { train:[0,1,2,3,4,5],ativo:[]  },
+        };
+        const pat = patterns[dias];
+
+        function buildWeek(wi) {
+            return Array.from({length:7}, (_,dayIdx) => {
+                const ti = pat.train.indexOf(dayIdx);
+                if (ti >= 0) return d(pool[ti], wi);
+                if (pat.ativo.includes(dayIdx)) return d('ativo', wi);
+                return d('descanso', wi);
+            });
+        }
 
         const META = [
             {id:1, tag:'SEMANA 1 DE 4', name:'Base & padrão', desc:'Volume base · 60–70% · postura e respiração'},
             {id:2, tag:'SEMANA 2 DE 4', name:'Estabilidade',  desc:'Mesma carga · foco total em técnica e qualidade'},
-            {id:3, tag:'SEMANA 3 DE 4', name:'Overload leve', desc:'+1 série por exercício · aumento de volume cardio'},
+            {id:3, tag:'SEMANA 3 DE 4', name:'Overload leve', desc:'+1 série por exercício · progressão de volume'},
             {id:4, tag:'SEMANA 4 DE 4', name:'Deload',        desc:'Volume reduzido · absorção e prep para o próximo ciclo'},
         ];
-        return META.map((m, wi) => ({
-            ...m,
-            days: wi < 3
-                ? [d(types[0],wi), d(types[1],wi), d('ativo',wi), d(types[2],wi), d(types[3],wi), d(types[4],wi), d('descanso',wi)]
-                : [d(types[0],3),  d(types[2],3),  d('descanso',3), d(types[1],3), d('ativo',3),  d(types[4],3),  d('descanso',3)],
-        }));
+        return META.map((m, wi) => ({ ...m, days: buildWeek(wi) }));
     }
     const PLAN_WEEKS = getPlanWeeks(getAvaliacao());
 
