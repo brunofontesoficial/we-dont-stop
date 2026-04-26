@@ -2037,12 +2037,15 @@
         const [showRPE,    setShowRPE]    = React.useState(false);
         const [rpeScore,   setRpeScore]   = React.useState(0);
         const [rpeNote,    setRpeNote]    = React.useState('');
-        const [swapTarget, setSwapTarget] = React.useState(null); // { id, name, section }
-        const [swapped,    setSwapped]    = React.useState({});   // { id: {name,detail} }
+        const [swapTarget, setSwapTarget] = React.useState(null);
+        const [swapped,    setSwapped]    = React.useState({});
+        const [showShare,  setShowShare]  = React.useState(false);
+        const [shareData,  setShareData]  = React.useState(null);
         const globalRef    = React.useRef(null);
         const restRef      = React.useRef(null);
         const startedAtRef = React.useRef(null);
         const totalMsRef   = React.useRef(0);
+        const canvasRef    = React.useRef(null);
         if (startedAtRef.current === null) {
             const s = getSessionState();
             startedAtRef.current = (s && s.startedAt) ? s.startedAt : Date.now();
@@ -2115,7 +2118,74 @@
                 rpe: rpeScore || null,
                 note: rpeNote.trim() || '',
             });
-            onClose();
+            const streak = getStreak();
+            setShareData({ sessionName: session?.day.name || 'Sessão', totalMs, doneCount: doneIds.length, rpe: rpeScore || null, streakCount: streak.count });
+            setShowRPE(false);
+            setShowShare(true);
+        }
+
+        React.useEffect(() => {
+            if (!showShare || !canvasRef.current || !shareData) return;
+            const cvs = canvasRef.current;
+            const ctx = cvs.getContext('2d');
+            const W = cvs.width, H = cvs.height;
+            function wt(text, x, y, maxW, lineH) {
+                const words = text.split(' '), lines = [];
+                let line = '';
+                for (const w of words) { const t = line ? line+' '+w : w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
+                lines.push(line);
+                lines.forEach((l, i) => ctx.fillText(l, x, y + (i - (lines.length-1)/2) * lineH));
+            }
+            ctx.fillStyle = '#090f1e'; ctx.fillRect(0,0,W,H);
+            const grad = ctx.createLinearGradient(0,0,0,H*0.4);
+            grad.addColorStop(0,'rgba(232,122,69,0.15)'); grad.addColorStop(1,'rgba(9,15,30,0)');
+            ctx.fillStyle = grad; ctx.fillRect(0,0,W,H*0.4);
+            ctx.fillStyle = '#e87a45'; ctx.fillRect(0,0,W,8);
+            ctx.textAlign = 'center';
+            ctx.font = `bold ${W*0.044}px system-ui,-apple-system,sans-serif`;
+            ctx.fillStyle = '#e87a45'; ctx.fillText("WE DON'T STOP", W/2, H*0.1);
+            ctx.font = `${W*0.18}px sans-serif`; ctx.fillStyle = '#3db87a'; ctx.fillText('✓', W/2, H*0.27);
+            ctx.font = `bold ${W*0.072}px system-ui,-apple-system,sans-serif`;
+            ctx.fillStyle = '#f5f0e8'; wt(shareData.sessionName, W/2, H*0.38, W*0.85, W*0.082);
+            const mins = Math.floor(shareData.totalMs/60000);
+            ctx.font = `${W*0.038}px system-ui`; ctx.fillStyle = 'rgba(245,240,232,0.5)';
+            ctx.fillText(`${mins} min · ${shareData.doneCount} exercícios`, W/2, H*0.47);
+            ctx.strokeStyle = 'rgba(245,240,232,0.1)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(W*0.15,H*0.52); ctx.lineTo(W*0.85,H*0.52); ctx.stroke();
+            if (shareData.rpe) {
+                const rc = shareData.rpe<=3?'#3db87a':shareData.rpe<=6?'#f0c52e':shareData.rpe<=8?'#e87a45':'#c84b38';
+                ctx.font = `bold ${W*0.15}px system-ui`; ctx.fillStyle = rc;
+                ctx.fillText(`RPE ${shareData.rpe}`, W/2, H*0.64);
+                ctx.font = `${W*0.034}px system-ui`; ctx.fillStyle = 'rgba(245,240,232,0.35)';
+                ctx.fillText('de 10', W/2, H*0.685);
+            }
+            if (shareData.streakCount > 1) {
+                ctx.font = `bold ${W*0.048}px system-ui`; ctx.fillStyle = '#f5f0e8';
+                ctx.fillText(`🔥 ${shareData.streakCount} dias seguidos`, W/2, H*0.77);
+            }
+            const d = new Date();
+            ctx.font = `${W*0.03}px system-ui`; ctx.fillStyle = 'rgba(245,240,232,0.28)';
+            ctx.fillText(d.toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'}), W/2, H*0.85);
+            ctx.font = `${W*0.026}px system-ui`; ctx.fillStyle = 'rgba(245,240,232,0.18)';
+            ctx.fillText('brunofontesoficial.github.io/we-dont-stop', W/2, H*0.95);
+        }, [showShare]);
+
+        async function handleShare() {
+            if (!canvasRef.current) return;
+            const mins = Math.floor(shareData.totalMs/60000);
+            const txt = [`✅ Completei "${shareData.sessionName}" em ${mins}min`, shareData.rpe ? `RPE ${shareData.rpe}/10` : '', shareData.streakCount > 1 ? `🔥 ${shareData.streakCount} dias seguidos` : '', '#wedontStop #treinamento'].filter(Boolean).join(' · ');
+            try {
+                const blob = await new Promise(r => canvasRef.current.toBlob(r,'image/png'));
+                const file = new File([blob], 'sessao-we-dont-stop.png', { type:'image/png' });
+                if (navigator.canShare && navigator.canShare({ files:[file] })) {
+                    await navigator.share({ files:[file], title:"We Don't Stop", text:txt });
+                } else if (navigator.share) {
+                    await navigator.share({ title:"We Don't Stop", text:txt, url:'https://brunofontesoficial.github.io/we-dont-stop' });
+                } else {
+                    await navigator.clipboard.writeText(txt+'\nhttps://brunofontesoficial.github.io/we-dont-stop');
+                    alert('Copiado!');
+                }
+            } catch(e) { if (e.name !== 'AbortError') console.error(e); }
         }
 
         if (!session) return null;
@@ -2335,6 +2405,23 @@
                         <button onClick={confirmarRPE}
                             style={{background:'none',border:'none',color:'rgba(245,240,232,0.3)',fontSize:12,cursor:'pointer',marginTop:12,padding:8}}>
                             Pular avaliação
+                        </button>
+                    </div>
+                )}
+
+                {showShare && shareData && (
+                    <div style={{position:'absolute',inset:0,background:'#090f1e',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'28px 24px',zIndex:10}}>
+                        <div style={{fontSize:9,fontWeight:700,letterSpacing:'2px',color:'rgba(245,240,232,0.35)',marginBottom:6}}>SESSÃO REGISTRADA</div>
+                        <div style={{fontFamily:'var(--font-display)',fontSize:18,fontWeight:700,color:'#3db87a',marginBottom:24}}>Mandou bem! 💪</div>
+                        <canvas ref={canvasRef} width={750} height={1000}
+                            style={{width:180,height:240,borderRadius:10,boxShadow:'0 8px 32px rgba(0,0,0,0.7)',marginBottom:28,flexShrink:0}}/>
+                        <button onClick={handleShare}
+                            style={{width:'100%',padding:14,background:'#e87a45',color:'#fff',border:'none',borderRadius:50,fontSize:13,fontWeight:700,cursor:'pointer',letterSpacing:.5,marginBottom:12}}>
+                            COMPARTILHAR SESSÃO
+                        </button>
+                        <button onClick={onClose}
+                            style={{background:'none',border:'none',color:'rgba(245,240,232,0.3)',fontSize:12,cursor:'pointer',padding:8}}>
+                            Fechar
                         </button>
                     </div>
                 )}
