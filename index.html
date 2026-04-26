@@ -913,6 +913,20 @@
         const raceDaysLeft = nextEvent ? getRaceDaysLeft(nextEvent.date) : null;
         const upcomingCount = getEvents().filter(e => new Date(e.date+'T00:00:00') >= new Date(new Date().setHours(0,0,0,0))).length;
         const aval = getAvaliacao();
+
+        // Proxy readiness from aval scores when no wearable connected
+        const readiness = (() => {
+            if (!aval?.scores) return null;
+            const s = aval.scores;
+            const vals = [s.core, s.forca, s.endurance, s.mobilidade].filter(v => typeof v === 'number');
+            if (!vals.length) return null;
+            const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
+            return Math.round(40 + avg * 0.55);
+        })();
+        const readinessPhrase = !readiness ? 'Bom dia.' : readiness >= 80 ? 'Dia de atacar.' : readiness >= 65 ? 'Mar calmo.' : readiness >= 50 ? 'Treino moderado.' : 'Escuta o corpo.';
+        const readinessSub    = !readiness ? 'Conecte Whoop · Garmin · Apple Health.' : readiness >= 80 ? 'Siga o plano sem alterar. Dia de performance.' : readiness >= 65 ? 'Siga o plano do dia sem mexer.' : readiness >= 50 ? 'Reduza volume se sentir cansaço.' : 'Priorize recuperação e mobilidade.';
+        const readinessLabel  = readiness ? 'READINESS · ESTIMADO' : 'READINESS · WHOOP';
+
         const avalLevelNames = ['Iniciante','Intermediário','Avançado','Elite','World Class'];
         const avalHasHiking = aval && aval.esporte === 'velejador' && aval.tipoBarco === 'hiking';
         const avalLevel = aval ? (avalHasHiking
@@ -929,7 +943,7 @@
                     <div className="hoje-row">
                         <div>
                             <div className="hoje-name">Olá, {profile.firstName}.</div>
-                            <div className="hoje-mood">Mar calmo.</div>
+                            <div className="hoje-mood">{readinessPhrase}</div>
                         </div>
                         <div className="top-actions">
                             <div className="bell">
@@ -945,11 +959,11 @@
 
                 <div className="cards-stack">
                     <div className="card card-readiness">
-                        <ReadinessCircle score={72} size={86}/>
+                        <ReadinessCircle score={readiness || 0} size={86}/>
                         <div className="readiness-body">
-                            <div className="card-label">READINESS · WHOOP</div>
-                            <div className="card-title-serif" style={{fontStyle:'italic',fontWeight:400,fontSize:20}}>Pronto pra forçar.</div>
-                            <div className="card-sub">Siga o plano do dia sem mexer.</div>
+                            <div className="card-label">{readinessLabel}</div>
+                            <div className="card-title-serif" style={{fontStyle:'italic',fontWeight:400,fontSize:20}}>{readinessPhrase}</div>
+                            <div className="card-sub">{readinessSub}</div>
                         </div>
                         <div className="chevron">›</div>
                     </div>
@@ -1510,6 +1524,7 @@
     function TelaBiblioteca() {
         const [filter, setFilter]   = useState('Warmup');
         const [exFilter, setExFilter] = useState('Todos');
+        const [searchQ, setSearchQ] = useState('');
         const filters = [{label:'Warmup',count:3},{label:'Alongamento',count:3},{label:'Exercícios',count:142}];
         const exFilters = ['Todos','Força','Endurance','Core','Mobilidade'];
 
@@ -1524,13 +1539,32 @@
             { name:'Alongamento·Rápido',   desc:'Pós-treino. Quadríceps, ombros, coluna torácica.',             meta:'6min · 5 movimentos',  iconType:'wave', bg:'rgba(155,125,212,0.12)' },
         ];
         const exItems = [
-            { code:'FOR', name:'Goblet Squat',       sub:'4 séries · 8 reps · pernas',       fav:true,  bg:'rgba(24,25,31,0.06)'  },
-            { code:'VEL', name:'Hike position hold', sub:'Isométrico · 45s · específico vela',fav:true,  bg:'rgba(74,143,217,0.1)' },
-            { code:'COR', name:'Turkish Get-up',     sub:'3×5 cada lado · full body',         fav:false, bg:'rgba(200,75,56,0.08)' },
-            { code:'COR', name:'Copenhagen plank',   sub:'3×30s · adutores',                  fav:false, bg:'rgba(200,75,56,0.08)' },
-            { code:'FOR', name:'Pull-up',             sub:'4 séries · 8 reps · dorsal',        fav:false, bg:'rgba(24,25,31,0.06)'  },
-            { code:'MOB', name:'Dead Hang',           sub:'3 séries · 45s · ombro + preensão', fav:false, bg:'rgba(155,125,212,0.1)' },
+            { code:'FOR', name:'Goblet Squat',         sub:'4 séries · 8 reps · pernas',         fav:true,  cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
+            { code:'VEL', name:'Hike position hold',   sub:'Isométrico · 45s · específico vela',  fav:true,  cat:'Força',    bg:'rgba(74,143,217,0.1)'  },
+            { code:'COR', name:'Turkish Get-up',       sub:'3×5 cada lado · full body',           fav:false, cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Copenhagen plank',     sub:'3×30s · adutores',                    fav:false, cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
+            { code:'FOR', name:'Pull-up',               sub:'4 séries · 8 reps · dorsal',          fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
+            { code:'MOB', name:'Dead Hang',             sub:'3 séries · 45s · ombro + preensão',   fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)'},
+            { code:'FOR', name:'Push-up',               sub:'4 séries · 15 reps · peito',          fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
+            { code:'COR', name:'Hollow hold',           sub:'4×20s · core anterior',               fav:true,  cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
+            { code:'COR', name:'Dead bug',              sub:'3×10 reps · estabilização',           fav:false, cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
+            { code:'END', name:'Corrida Z2',            sub:'30–40 min · zona 2 aeróbica',         fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Bike Z2',               sub:'40–50 min · cadência 85rpm',          fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'END', name:'Ergômetro Z2',          sub:'20 min · split 2:10–2:20/500m',       fav:false, cat:'Endurance', bg:'rgba(45,107,79,0.1)'   },
+            { code:'MOB', name:'Pigeon pose',           sub:'2×60s cada lado · quadril',           fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)'},
+            { code:'MOB', name:'90/90 de quadril',      sub:'2×60s cada lado · rotação',           fav:false, cat:'Mobilidade',bg:'rgba(155,125,212,0.1)'},
+            { code:'FOR', name:'Agachamento',           sub:'4×12 reps · funcional',               fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
+            { code:'FOR', name:'Romanian deadlift',     sub:'3×10 reps · posterior',               fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
+            { code:'COR', name:'Prancha lateral',       sub:'3×40s cada lado',                     fav:false, cat:'Core',     bg:'rgba(200,75,56,0.08)'  },
+            { code:'FOR', name:'Inverted row',          sub:'3×10 reps · costas',                  fav:false, cat:'Força',    bg:'rgba(24,25,31,0.06)'   },
         ];
+        const codeFilter = { 'Força':'FOR', 'Endurance':'END', 'Core':'COR', 'Mobilidade':'MOB' };
+        const filteredEx = exItems.filter(e => {
+            const matchCat = exFilter === 'Todos' || e.cat === exFilter;
+            const q = searchQ.toLowerCase();
+            const matchQ = !q || e.name.toLowerCase().includes(q) || e.sub.toLowerCase().includes(q) || e.cat.toLowerCase().includes(q);
+            return matchCat && matchQ;
+        });
 
         const sectionLabel = filter==='Warmup' ? 'ANTES DO TREINO' : 'DEPOIS DO TREINO';
         const sectionTitle = filter==='Warmup' ? 'Aquecimento' : 'Alongamento';
@@ -1587,14 +1621,15 @@
                                 <circle cx="7" cy="7" r="5" stroke="var(--muted-dark)" strokeWidth="1.4"/>
                                 <path d="M11 11L14 14" stroke="var(--muted-dark)" strokeWidth="1.4" strokeLinecap="round"/>
                             </svg>
-                            <input style={{width:'100%',padding:'11px 14px 11px 38px',borderRadius:12,border:'1px solid rgba(24,25,31,0.1)',background:'#fff',fontSize:13,color:'var(--text-dark)',fontFamily:'var(--font-body)',outline:'none'}} placeholder="Buscar exercício, grupo, pilar…"/>
+                            <input value={searchQ} onChange={e => setSearchQ(e.target.value)} style={{width:'100%',padding:'11px 14px 11px 38px',borderRadius:12,border:'1px solid rgba(24,25,31,0.1)',background:'#fff',fontSize:13,color:'var(--text-dark)',fontFamily:'var(--font-body)',outline:'none'}} placeholder="Buscar exercício, grupo, pilar…"/>
                         </div>
                         <div className="filter-bar" style={{marginBottom:16}}>
                             {exFilters.map(f => (
                                 <button key={f} className={`filter-pill ${exFilter===f?'on':'off'}`} onClick={() => setExFilter(f)} style={{fontSize:12,padding:'6px 14px'}}>{f}</button>
                             ))}
                         </div>
-                        {exItems.map((item,i) => (
+                        {filteredEx.length === 0 && <div style={{textAlign:'center',padding:'24px 0',color:'var(--muted-dark)',fontSize:13}}>Nenhum exercício encontrado.</div>}
+                        {filteredEx.map((item,i) => (
                             <div key={i} className="bib-item">
                                 <div style={{width:44,height:44,borderRadius:12,background:item.bg,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                                     <span style={{fontSize:10,fontWeight:700,color:'var(--muted-dark)',letterSpacing:'0.5px'}}>{item.code}</span>
@@ -1620,7 +1655,7 @@
             { l:'W', name:'Whoop',        data:'Recovery · HRV · Sono',   sync:'Última sync · há 2min',  bg:'#25a244' },
             { l:'G', name:'Garmin',       data:'VO₂max · Carga · GPS',    sync:'Última sync · há 8min',  bg:'#3d6bc8' },
             { l:'A', name:'Apple Health', data:'HR · Passos · Treinos',   sync:'Última sync · agora',    bg:'#e53935' },
-            { l:'S', name:'Strava',       data:'Publicar atividades',     sync:'Última sync · há auto',  bg:'#fc4c02' },
+            { l:'S', name:'Strava',       data:'Publicar atividades',     sync:'Última sync · há 5min',  bg:'#fc4c02' },
             { l:'∿', name:'Windy',        data:'Vento · Previsão · Mar',  sync:'Última sync · há 1h',    bg:'#4a8fd9' },
         ];
         const AVAILABLE = [
