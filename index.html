@@ -2623,15 +2623,11 @@
         const [equipamentos, setEquipamentos] = useState([]);
 
         // Step 3: Hiking bench
-        const [hikingSecs, setHikingSecs] = useState(112);
-        const [hikingOn, setHikingOn] = useState(false);
-        const [hikingVal, setHikingVal] = useState(0);
+        const [hikingSecs, setHikingSecs] = useState(0);
         const hikingRef = useRef(null);
 
         // Step 4: Core
-        const [plankSecs, setPlankSecs] = useState(95);
-        const [plankOn, setPlankOn] = useState(false);
-        const [plankVal, setPlankVal] = useState(0);
+        const [plankSecs, setPlankSecs] = useState(0);
         const plankRef = useRef(null);
         const [emomRounds, setEmomRounds] = useState(null);
 
@@ -2651,33 +2647,8 @@
         // Step 6: Mobilidade
         const [mobScores, setMobScores] = useState({quadrilPost:null, ombroColuna:null, equilibrio:null, respiracao:null});
 
-        useEffect(() => () => {
-            clearInterval(hikingRef.current);
-            clearInterval(plankRef.current);
-        }, []);
-
         const mm = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
         const parseMmSs = str => { const p = (str||'').split(':'); return p.length===2 ? (parseInt(p[0])||0)*60+(parseInt(p[1])||0) : (parseInt(str)||0); };
-
-        function toggleHiking() {
-            if (!hikingOn) {
-                setHikingVal(0); setHikingOn(true);
-                hikingRef.current = setInterval(() => setHikingVal(v => v+1), 1000);
-            } else {
-                clearInterval(hikingRef.current); setHikingOn(false);
-                setHikingSecs(hikingVal);
-            }
-        }
-
-        function togglePlank() {
-            if (!plankOn) {
-                setPlankVal(0); setPlankOn(true);
-                plankRef.current = setInterval(() => setPlankVal(v => v+1), 1000);
-            } else {
-                clearInterval(plankRef.current); setPlankOn(false);
-                setPlankSecs(plankVal);
-            }
-        }
 
         function toggleEquip(e) {
             setEquipamentos(prev => prev.includes(e) ? prev.filter(x => x!==e) : [...prev, e]);
@@ -2831,7 +2802,6 @@
         }
 
         function renderHiking() {
-            const secs = hikingOn ? hikingVal : hikingSecs;
             const levels = [
                 {name:'Iniciante',    range:'< 60 seg',      min:0,   max:59,       color:'#e87a45'},
                 {name:'Intermediário',range:'60 – 120 seg',  min:60,  max:119,      color:'#f0c52e'},
@@ -2839,6 +2809,10 @@
                 {name:'Elite',        range:'180 – 240 seg', min:180, max:239,      color:'#3db87a'},
                 {name:'World Class',  range:'> 240 seg',     min:240, max:Infinity, color:'#9b7dd4'},
             ];
+            const hikMin = Math.floor(hikingSecs / 60);
+            const hikSec = hikingSecs % 60;
+            const lvl = hikingSecs > 0 ? (levels.find(l => hikingSecs >= l.min && hikingSecs <= l.max) || levels[0]) : null;
+            const score = hikingSecs > 0 ? Math.min(100, Math.round(hikingSecs / 240 * 100)) : null;
             return (<>
                 <div className="aval-step-tag">TESTE 1 · HIKING BENCH</div>
                 <div className="aval-title">Isometria postural</div>
@@ -2850,64 +2824,82 @@
                     'Incline o tronco levemente para frente — posição de hiking',
                     'Segure o máximo possível sem apoiar as mãos',
                 ]}/>
-                <div className="timer-box" onClick={toggleHiking} style={{cursor:'pointer', userSelect:'none', background: hikingOn ? 'rgba(24,25,31,0.04)' : '#fff'}}>
-                    <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.6px', textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>
-                        {hikingOn ? 'TOQUE PARA PARAR' : hikingVal > 0 ? 'TOQUE PARA REFAZER' : 'TOQUE PARA INICIAR'}
+                <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU TEMPO</div>
+                <div className="aval-num-boxes" style={{marginBottom:20}}>
+                    <div className="aval-num-box" style={{flex:1}}>
+                        <div className="aval-num-unit-top">MINUTOS</div>
+                        <div className="aval-num-row">
+                            <div className="aval-num-val">{hikMin}</div>
+                            <div className="aval-num-unit">min</div>
+                        </div>
+                        <div className="aval-num-stepper">
+                            <button onClick={() => setHikingSecs(v => Math.max(0, v - 60))}>−</button>
+                            <button onClick={() => setHikingSecs(v => Math.min(600, v + 60))}>+</button>
+                        </div>
                     </div>
-                    <div className="timer-row">
-                        <div className="timer-n">{mm(secs)}</div>
-                    </div>
-                    <div className="timer-units" style={{marginTop:6}}>
-                        <div className="timer-unit-lbl">MIN</div>
-                        <div className="timer-unit-lbl">SEG</div>
+                    <div className="aval-num-box" style={{flex:1}}>
+                        <div className="aval-num-unit-top">SEGUNDOS</div>
+                        <div className="aval-num-row">
+                            <div className="aval-num-val">{hikSec}</div>
+                            <div className="aval-num-unit">seg</div>
+                        </div>
+                        <div className="aval-num-stepper">
+                            <button onClick={() => setHikingSecs(v => Math.max(0, v - 1))}>−</button>
+                            <button onClick={() => setHikingSecs(v => Math.min(600, v + 1))}>+</button>
+                        </div>
                     </div>
                 </div>
-                {hikingVal > 0 && !hikingOn && (() => {
-                    const lvl = levels.find(l => hikingSecs >= l.min && hikingSecs <= l.max) || levels[0];
-                    const score = Math.min(100, Math.round(hikingSecs / 240 * 100));
-                    return (
-                        <div style={{background:'var(--card-cream)', borderRadius:16, padding:'20px', marginBottom:16, border:`2px solid ${lvl.color}`}}>
-                            <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU RESULTADO</div>
-                            <div style={{display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:12}}>
-                                <div>
-                                    <div style={{fontFamily:'var(--font-display)', fontSize:52, fontWeight:600, lineHeight:1, color:'var(--text-dark)'}}>{mm(hikingSecs)}</div>
-                                    <div style={{fontSize:11, color:'rgba(24,25,31,0.45)', marginTop:4}}>min · seg</div>
-                                </div>
-                                <div style={{textAlign:'right'}}>
-                                    <div style={{fontFamily:'var(--font-display)', fontSize:40, fontWeight:600, color:lvl.color, lineHeight:1}}>{score}</div>
-                                    <div style={{fontSize:11, color:'rgba(24,25,31,0.45)'}}>/100</div>
-                                </div>
+                {lvl && (
+                    <div style={{background:'var(--card-cream)', borderRadius:16, padding:'20px', marginBottom:16, border:`2px solid ${lvl.color}`}}>
+                        <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU RESULTADO</div>
+                        <div style={{display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:12}}>
+                            <div>
+                                <div style={{fontFamily:'var(--font-display)', fontSize:52, fontWeight:600, lineHeight:1, color:'var(--text-dark)'}}>{mm(hikingSecs)}</div>
+                                <div style={{fontSize:11, color:'rgba(24,25,31,0.45)', marginTop:4}}>min · seg</div>
                             </div>
-                            <div style={{display:'flex', alignItems:'center', gap:8}}>
-                                <div style={{width:10, height:10, borderRadius:'50%', background:lvl.color, flexShrink:0}}/>
-                                <div style={{fontSize:15, fontWeight:700, color:lvl.color}}>{lvl.name}</div>
+                            <div style={{textAlign:'right'}}>
+                                <div style={{fontFamily:'var(--font-display)', fontSize:40, fontWeight:600, color:lvl.color, lineHeight:1}}>{score}</div>
+                                <div style={{fontSize:11, color:'rgba(24,25,31,0.45)'}}>/100</div>
                             </div>
                         </div>
-                    );
-                })()}
+                        <div style={{display:'flex', alignItems:'center', gap:8}}>
+                            <div style={{width:10, height:10, borderRadius:'50%', background:lvl.color, flexShrink:0}}/>
+                            <div style={{fontSize:15, fontWeight:700, color:lvl.color}}>{lvl.name}</div>
+                        </div>
+                    </div>
+                )}
                 <div style={{display:'flex', flexDirection:'column', gap:6}}>
-                {levels.map((l, i) => {
-                    const active = secs >= l.min && secs <= l.max;
-                    return (
-                        <div key={i} className="aval-level-row" style={{opacity: active ? 1 : 0.45}}>
-                            <div className="aval-level-bar" style={{background: l.color}}/>
-                            <div className="aval-level-name" style={{fontWeight: active ? 700 : 500}}>{l.name}</div>
-                            <div className="aval-level-range">{l.range}</div>
-                            {active && <div className="aval-level-active-dot"/>}
-                        </div>
-                    );
-                })}
+                    {levels.map((l, i) => {
+                        const active = hikingSecs > 0 && hikingSecs >= l.min && hikingSecs <= l.max;
+                        return (
+                            <div key={i} className="aval-level-row" style={{opacity: hikingSecs > 0 ? (active ? 1 : 0.4) : 1}}>
+                                <div className="aval-level-bar" style={{background: l.color}}/>
+                                <div className="aval-level-name" style={{fontWeight: active ? 700 : 500}}>{l.name}</div>
+                                <div className="aval-level-range">{l.range}</div>
+                                {active && <div className="aval-level-active-dot"/>}
+                            </div>
+                        );
+                    })}
                 </div>
             </>);
         }
 
         function renderCore() {
-            const secs = plankOn ? plankVal : plankSecs;
-            const lvl = secs>=180?'World Class':secs>=120?'Elite':secs>=90?'Avançado':secs>=60?'Intermediário':'Iniciante';
+            const plankLevels = [
+                {name:'Iniciante',    range:'< 60 seg',      min:0,   max:59,       color:'#e87a45'},
+                {name:'Intermediário',range:'60 – 90 seg',   min:60,  max:89,       color:'#f0c52e'},
+                {name:'Avançado',     range:'90 – 120 seg',  min:90,  max:119,      color:'#4a8fd9'},
+                {name:'Elite',        range:'120 – 180 seg', min:120, max:179,      color:'#3db87a'},
+                {name:'World Class',  range:'> 180 seg',     min:180, max:Infinity, color:'#9b7dd4'},
+            ];
+            const plankMin = Math.floor(plankSecs / 60);
+            const plankSec = plankSecs % 60;
+            const lvl = plankSecs > 0 ? (plankLevels.find(l => plankSecs >= l.min && plankSecs <= l.max) || plankLevels[0]) : null;
+            const score = plankSecs > 0 ? Math.min(100, Math.round(plankSecs / 180 * 100)) : null;
             return (<>
                 <div className="aval-step-tag">TESTE 2 · CORE</div>
                 <div className="aval-title">Plank Frontal</div>
-                <div className="aval-desc">Posição de prancha com antebraços. Mantenha o máximo de tempo possível. Toque para iniciar e parar.</div>
+                <div className="aval-desc">Posição de prancha com antebraços. Insira o tempo que conseguiu manter.</div>
                 <VideoCard title="Plank frontal · posição correta" videoKey="core"/>
                 <TutorialSteps steps={[
                     'Antebraços no chão, cotovelos sob os ombros',
@@ -2915,48 +2907,63 @@
                     'Glúteos contraídos, core ativado — não eleve o quadril',
                     'Respire normalmente e segure o máximo possível',
                 ]}/>
-                <div className="timer-box" onClick={togglePlank} style={{cursor:'pointer', userSelect:'none', marginBottom:20}}>
-                    <div style={{fontSize:9, fontWeight:700, letterSpacing:'1.6px', textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>
-                        {plankOn ? 'TOQUE PARA PARAR' : plankVal > 0 ? 'TOQUE PARA REFAZER' : 'TOQUE PARA INICIAR'}
+                <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU TEMPO</div>
+                <div className="aval-num-boxes" style={{marginBottom:20}}>
+                    <div className="aval-num-box" style={{flex:1}}>
+                        <div className="aval-num-unit-top">MINUTOS</div>
+                        <div className="aval-num-row">
+                            <div className="aval-num-val">{plankMin}</div>
+                            <div className="aval-num-unit">min</div>
+                        </div>
+                        <div className="aval-num-stepper">
+                            <button onClick={() => setPlankSecs(v => Math.max(0, v - 60))}>−</button>
+                            <button onClick={() => setPlankSecs(v => Math.min(600, v + 60))}>+</button>
+                        </div>
                     </div>
-                    <div className="timer-row">
-                        <div className="timer-n">{mm(secs)}</div>
-                    </div>
-                    <div className="timer-units" style={{marginTop:6}}>
-                        <div className="timer-unit-lbl">MIN</div>
-                        <div className="timer-unit-lbl">SEG</div>
+                    <div className="aval-num-box" style={{flex:1}}>
+                        <div className="aval-num-unit-top">SEGUNDOS</div>
+                        <div className="aval-num-row">
+                            <div className="aval-num-val">{plankSec}</div>
+                            <div className="aval-num-unit">seg</div>
+                        </div>
+                        <div className="aval-num-stepper">
+                            <button onClick={() => setPlankSecs(v => Math.max(0, v - 1))}>−</button>
+                            <button onClick={() => setPlankSecs(v => Math.min(600, v + 1))}>+</button>
+                        </div>
                     </div>
                 </div>
-                {plankVal > 0 && !plankOn && (() => {
-                    const plankLevels = [
-                        {name:'Iniciante',    range:'< 60 seg',      min:0,   max:59,       color:'#e87a45'},
-                        {name:'Intermediário',range:'60 – 90 seg',   min:60,  max:89,       color:'#f0c52e'},
-                        {name:'Avançado',     range:'90 – 120 seg',  min:90,  max:119,      color:'#4a8fd9'},
-                        {name:'Elite',        range:'120 – 180 seg', min:120, max:179,      color:'#3db87a'},
-                        {name:'World Class',  range:'> 180 seg',     min:180, max:Infinity, color:'#9b7dd4'},
-                    ];
-                    const activeLvl = plankLevels.find(l => plankSecs >= l.min && plankSecs <= l.max) || plankLevels[0];
-                    const score = Math.min(100, Math.round(plankSecs / 180 * 100));
-                    return (
-                        <div style={{background:'var(--card-cream)', borderRadius:16, padding:'20px', marginBottom:16, border:`2px solid ${activeLvl.color}`}}>
-                            <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU RESULTADO</div>
-                            <div style={{display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:12}}>
-                                <div>
-                                    <div style={{fontFamily:'var(--font-display)', fontSize:52, fontWeight:600, lineHeight:1, color:'var(--text-dark)'}}>{mm(plankSecs)}</div>
-                                    <div style={{fontSize:11, color:'rgba(24,25,31,0.45)', marginTop:4}}>min · seg</div>
-                                </div>
-                                <div style={{textAlign:'right'}}>
-                                    <div style={{fontFamily:'var(--font-display)', fontSize:40, fontWeight:600, color:activeLvl.color, lineHeight:1}}>{score}</div>
-                                    <div style={{fontSize:11, color:'rgba(24,25,31,0.45)'}}>/100</div>
-                                </div>
+                {lvl && (
+                    <div style={{background:'var(--card-cream)', borderRadius:16, padding:'20px', marginBottom:16, border:`2px solid ${lvl.color}`}}>
+                        <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU RESULTADO</div>
+                        <div style={{display:'flex', alignItems:'flex-end', justifyContent:'space-between', marginBottom:12}}>
+                            <div>
+                                <div style={{fontFamily:'var(--font-display)', fontSize:52, fontWeight:600, lineHeight:1, color:'var(--text-dark)'}}>{mm(plankSecs)}</div>
+                                <div style={{fontSize:11, color:'rgba(24,25,31,0.45)', marginTop:4}}>min · seg</div>
                             </div>
-                            <div style={{display:'flex', alignItems:'center', gap:8}}>
-                                <div style={{width:10, height:10, borderRadius:'50%', background:activeLvl.color, flexShrink:0}}/>
-                                <div style={{fontSize:15, fontWeight:700, color:activeLvl.color}}>{activeLvl.name}</div>
+                            <div style={{textAlign:'right'}}>
+                                <div style={{fontFamily:'var(--font-display)', fontSize:40, fontWeight:600, color:lvl.color, lineHeight:1}}>{score}</div>
+                                <div style={{fontSize:11, color:'rgba(24,25,31,0.45)'}}>/100</div>
                             </div>
                         </div>
-                    );
-                })()}
+                        <div style={{display:'flex', alignItems:'center', gap:8}}>
+                            <div style={{width:10, height:10, borderRadius:'50%', background:lvl.color, flexShrink:0}}/>
+                            <div style={{fontSize:15, fontWeight:700, color:lvl.color}}>{lvl.name}</div>
+                        </div>
+                    </div>
+                )}
+                <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                    {plankLevels.map((l, i) => {
+                        const active = plankSecs > 0 && plankSecs >= l.min && plankSecs <= l.max;
+                        return (
+                            <div key={i} className="aval-level-row" style={{opacity: plankSecs > 0 ? (active ? 1 : 0.4) : 1}}>
+                                <div className="aval-level-bar" style={{background: l.color}}/>
+                                <div className="aval-level-name" style={{fontWeight: active ? 700 : 500}}>{l.name}</div>
+                                <div className="aval-level-range">{l.range}</div>
+                                {active && <div className="aval-level-active-dot"/>}
+                            </div>
+                        );
+                    })}
+                </div>
             </>);
         }
 
