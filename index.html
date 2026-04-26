@@ -908,6 +908,7 @@
         const profile = getProfile();
         const nextEvent = getNextEvent();
         const raceDaysLeft = nextEvent ? getRaceDaysLeft(nextEvent.date) : null;
+        const upcomingCount = getEvents().filter(e => new Date(e.date+'T00:00:00') >= new Date(new Date().setHours(0,0,0,0))).length;
         const aval = getAvaliacao();
         const avalLevelNames = ['Iniciante','Intermediário','Avançado','Elite','World Class'];
         const avalHasHiking = aval && aval.esporte === 'velejador' && aval.tipoBarco === 'hiking';
@@ -1012,7 +1013,7 @@
                         <div className="readiness-body">
                             <div className="card-label">MODO REGATA · ATIVO</div>
                             <div className="card-title-serif">{nextEvent ? nextEvent.name : profile.raceName}</div>
-                            <div className="card-sub">{nextEvent ? `em ${raceDaysLeft} dias · ${nextEvent.location}` : 'sem eventos futuros'}</div>
+                            <div className="card-sub">{nextEvent ? `em ${raceDaysLeft} dias · ${nextEvent.location}${upcomingCount > 1 ? ` · +${upcomingCount - 1} evento${upcomingCount > 2 ? 's' : ''}` : ''}` : 'sem eventos futuros'}</div>
                         </div>
                         <div className="chevron">›</div>
                     </div>}
@@ -1693,12 +1694,10 @@
         const [doneIds,   setDoneIds]   = React.useState(() => { const s=getSessionState(); return (s&&!s.completed)?(s.doneIds||[]): []; });
         const [elapsed,   setElapsed]   = React.useState(() => { const s=getSessionState(); return (s&&s.startedAt)?Math.floor((Date.now()-s.startedAt)/1000):0; });
         const [phase,     setPhase]     = React.useState('exercise'); // 'exercise' | 'rest'
-        const [exElapsed, setExElapsed] = React.useState(0);
         const [restLeft,  setRestLeft]  = React.useState(0);
         const [restTotal, setRestTotal] = React.useState(0);
 
         const globalRef = React.useRef(null);
-        const exRef     = React.useRef(null);
         const restRef   = React.useRef(null);
         const startedAtRef = React.useRef(null);
         if (startedAtRef.current === null) {
@@ -1709,8 +1708,7 @@
         React.useEffect(() => {
             saveSessionState({ date:today, weekIdx:session?.weekIdx||1, dayType:session?.day.type||'', doneIds, startedAt:startedAtRef.current, completed:false });
             globalRef.current = setInterval(() => setElapsed(Math.floor((Date.now()-startedAtRef.current)/1000)), 1000);
-            exRef.current     = setInterval(() => setExElapsed(v => v+1), 1000);
-            return () => { clearInterval(globalRef.current); clearInterval(exRef.current); clearInterval(restRef.current); };
+            return () => { clearInterval(globalRef.current); clearInterval(restRef.current); };
         }, []);
 
         function fmtTime(secs) {
@@ -1725,12 +1723,10 @@
 
         function concluirExercicio() {
             if (!currentEx) return;
-            clearInterval(exRef.current);
             const newDone = [...doneIds, currentEx.id];
             const isLast  = newDone.length >= allExercises.length;
             setDoneIds(newDone);
             saveSessionState({ doneIds: newDone });
-            setExElapsed(0);
             const restSecs = parseRest(currentEx.rest);
             if (restSecs > 0 && !isLast) {
                 setRestTotal(restSecs);
@@ -1741,7 +1737,6 @@
                         if (v <= 1) {
                             clearInterval(restRef.current);
                             setPhase('exercise');
-                            exRef.current = setInterval(() => setExElapsed(v2 => v2+1), 1000);
                             return 0;
                         }
                         return v-1;
@@ -1749,18 +1744,16 @@
                 }, 1000);
             } else {
                 setPhase('exercise');
-                exRef.current = setInterval(() => setExElapsed(v => v+1), 1000);
             }
         }
 
         function skipRest() {
             clearInterval(restRef.current);
             setRestLeft(0); setPhase('exercise');
-            exRef.current = setInterval(() => setExElapsed(v => v+1), 1000);
         }
 
         function encerrarSessao() {
-            clearInterval(globalRef.current); clearInterval(exRef.current); clearInterval(restRef.current);
+            clearInterval(globalRef.current); clearInterval(restRef.current);
             const totalMs = Date.now() - startedAtRef.current;
             saveSessionState({ completed:true, totalMs, doneIds });
             updateStreak();
@@ -1835,13 +1828,10 @@
                                     <div style={{background:`${currentEx.color}10`,border:`1.5px solid ${currentEx.color}35`,borderRadius:18,padding:'22px 20px',marginBottom:10}}>
                                         <div style={{fontSize:9,fontWeight:700,letterSpacing:1.5,color:currentEx.color,marginBottom:10,textTransform:'uppercase'}}>{currentEx.section}</div>
                                         <div style={{fontFamily:'var(--font-display)',fontSize:26,fontWeight:600,color:'#f5f0e8',marginBottom:4,lineHeight:1.2}}>{currentEx.name}</div>
-                                        <div style={{fontSize:13,color:'rgba(245,240,232,0.48)',marginBottom:18}}>{currentEx.detail}</div>
-                                        <div style={{display:'flex',alignItems:'baseline',gap:10}}>
-                                            <div style={{fontFamily:'var(--font-display)',fontSize:44,fontWeight:700,color:currentEx.color,fontVariantNumeric:'tabular-nums',lineHeight:1}}>{fmtTime(exElapsed)}</div>
-                                            {currentEx.rest && currentEx.rest !== '—' && (
-                                                <div style={{fontSize:10,color:'rgba(245,240,232,0.28)'}}>descanso {currentEx.rest}</div>
-                                            )}
-                                        </div>
+                                        <div style={{fontSize:13,color:'rgba(245,240,232,0.48)',marginBottom:6}}>{currentEx.detail}</div>
+                                        {currentEx.rest && currentEx.rest !== '—' && (
+                                            <div style={{fontSize:10,color:'rgba(245,240,232,0.28)'}}>descanso {currentEx.rest}</div>
+                                        )}
                                     </div>
                                     {/* Next up */}
                                     {nextEx && (
