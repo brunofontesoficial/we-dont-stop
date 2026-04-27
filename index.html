@@ -1102,6 +1102,7 @@
     }
 
     function TelaHoje({ setModal, sailingMode, openSession }) {
+        const PLAN_WEEKS = React.useMemo(() => getPlanWeeks(getAvaliacao()), []);
         const WEEK_IDX = getWeekIdx();
         const todayDay = (PLAN_WEEKS[WEEK_IDX - 1] || PLAN_WEEKS[0]).days[TODAY_IDX];
         const isRest   = todayDay.type === 'descanso';
@@ -4867,6 +4868,7 @@
     }
 
     function TelaPlano({ openSession }) {
+        const PLAN_WEEKS = React.useMemo(() => getPlanWeeks(getAvaliacao()), []);
         const [week, setWeek] = useState(getWeekIdx);
         const [selected, setSelected] = useState(null);
         const w = PLAN_WEEKS.find(x => x.id === week);
@@ -4967,7 +4969,7 @@
         const renderTab = () => {
             switch (tab) {
                 case 'hoje':      return <TelaHoje      key={refreshKey} setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
-                case 'plano':     return <TelaPlano openSession={openSession}/>;
+                case 'plano':     return <TelaPlano key={refreshKey} openSession={openSession}/>;
                 case 'testes':    return <TelaTestes setModal={setModal}/>;
                 case 'biblioteca':return <TelaBiblioteca/>;
                 case 'pulso':     return <TelaPulso/>;
