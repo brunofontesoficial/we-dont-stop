@@ -2250,8 +2250,8 @@
                                         )}
                                         {/* Result input */}
                                         <input
-                                            value={results[currentEx.id] || ''}
-                                            onChange={e => setResults(r => ({...r, [currentEx.id]: e.target.value}))}
+                                            value={results[currentEx.name] || ''}
+                                            onChange={e => setResults(r => ({...r, [currentEx.name]: e.target.value}))}
                                             placeholder="Resultado (ex: 3×12 com 20kg)…"
                                             style={{width:'100%',padding:'10px 14px',borderRadius:10,border:'1px solid rgba(245,240,232,0.15)',background:'rgba(245,240,232,0.06)',color:'#f5f0e8',fontSize:13,fontFamily:'var(--font-body)',outline:'none',boxSizing:'border-box'}}/>
                                     </div>
@@ -3179,6 +3179,43 @@
                             Nenhuma sessão registrada ainda.<br/>Complete sua primeira sessão para ver o histórico.
                         </div>
                     )}
+
+                    {/* ── PROGRESSÃO ── */}
+                    {(() => {
+                        const exMap = {};
+                        hist.slice().reverse().forEach(h => {
+                            if (!h.results) return;
+                            Object.entries(h.results).forEach(([name, val]) => {
+                                if (!val) return;
+                                if (!exMap[name]) exMap[name] = [];
+                                exMap[name].push({ date: h.date, val });
+                            });
+                        });
+                        const tracked = Object.entries(exMap).filter(([,v]) => v.length >= 2);
+                        if (!tracked.length) return null;
+                        return (
+                            <div style={{padding:'0 16px',marginBottom:4}}>
+                                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.8,textTransform:'uppercase',color:'rgba(245,240,232,0.3)',padding:'16px 4px 8px'}}>PROGRESSÃO</div>
+                                {tracked.map(([name, entries]) => (
+                                    <div key={name} style={{background:'rgba(245,240,232,0.05)',borderRadius:14,marginBottom:8,padding:'14px 16px',border:'1px solid rgba(245,240,232,0.07)'}}>
+                                        <div style={{fontSize:12,fontWeight:600,color:'#f5f0e8',marginBottom:10}}>{name}</div>
+                                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                                            {entries.map((e, i) => {
+                                                const d = new Date(e.date+'T00:00:00');
+                                                const isLast = i === entries.length - 1;
+                                                return (
+                                                    <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                                                        <div style={{fontSize:11,fontWeight:isLast?700:400,color:isLast?'#f0c52e':'rgba(245,240,232,0.55)',background:isLast?'rgba(240,197,46,0.12)':'rgba(245,240,232,0.06)',borderRadius:8,padding:'4px 8px',border:isLast?'1px solid rgba(240,197,46,0.3)':'1px solid transparent'}}>{e.val}</div>
+                                                        <div style={{fontSize:9,color:'rgba(245,240,232,0.25)'}}>{d.getDate()}/{d.getMonth()+1}</div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })()}
 
                     {byWeek.map(([weekIdx, sessions]) => (
                         <div key={weekIdx} style={{padding:'0 16px',marginBottom:8}}>
