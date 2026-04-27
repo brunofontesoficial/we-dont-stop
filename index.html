@@ -2056,7 +2056,7 @@
             sections.flatMap((sec, si) =>
                 sec.items.map((item, ii) => {
                     const id = `s${si}-i${ii}`;
-                    return { id, section:sec.title, color:sec.color, ...item, ...(swapped[id]||{}) };
+                    return { id, section:sec.title, color:sec.color, ...item, ...((swapped||{})[id]||{}) };
                 })
             ), [sections, swapped]);
 
