@@ -4821,9 +4821,17 @@
         }
 
         function buildWeek(wi) {
+            const seen = {};
             return Array.from({length:7}, (_,dayIdx) => {
                 const ti = pat.train.indexOf(dayIdx);
-                if (ti >= 0) return d(pool[ti] || 'forca', wi);
+                if (ti >= 0) {
+                    const type = pool[ti] || 'forca';
+                    const occ = seen[type] || 0;
+                    seen[type] = occ + 1;
+                    // Offset by occ*2 so repeated types in the same week use different DAY_NAMES entries
+                    const nameIdx = (wi + occ * 2) % 4;
+                    return { type, ...DAY_NAMES[type][nameIdx] };
+                }
                 if (pat.ativo.includes(dayIdx)) return d('ativo', wi);
                 return d('descanso', wi);
             });
