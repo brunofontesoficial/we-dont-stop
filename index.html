@@ -5082,6 +5082,20 @@
         const intervDetail  = { L:'–',      M:'3 × 2 min', H:'5 × 2 min' };
         const burpeesDetail = { L:'3 × 5 rep', M:'3 × 8 rep', H:'4 × 10 rep' };
 
+        const hasHiking = aval?.esporte === 'velejador' && aval?.tipoBarco === 'hiking';
+        const hikingSets = { L:2, M:3, H:4 }[tier] || 2;
+        const hikingCoreAdd = hasHiking ? [
+            {name:'Hiking isométrico centro', detail:`${hikingSets} × máximo`, rest:'90s'},
+            {name:'Wall sit',                 detail:`${hikingSets} × 60s`,    rest:'60s'},
+        ] : [];
+        const hikingForcaAdd = hasHiking ? [
+            {name:'Hiking bench lastrado',  detail:`${hikingSets} × máximo`,   rest:'2 min'},
+            {name:'Step-up lastrado',       detail:`${hikingSets} × 12 cada`,  rest:'60s'},
+        ] : [];
+        const hikingWorkoutAdd = hasHiking ? [
+            {name:'Hiking bench sprint', detail:`${hikingSets} × 30s`, rest:'45s'},
+        ] : [];
+
         const S = {
             // ── ENDURANCE ──────────────────────────────────────────────────
             endurance: {
@@ -5356,6 +5370,92 @@
                         {name:'Pigeon pose',            detail:'2 × 90s cada', rest:''},
                         {name:'Alongamento de peito',   detail:'2 × 30s',      rest:''},
                         {name:'Foam roll · costas',     detail:'2 min',        rest:''},
+                    ]},
+                ],
+            },
+            // ── FORÇA DAY (4 blocks: Mobilidade → Core → Força → Workout) ─
+            forca_day: {
+                L: [
+                    { title:'MOBILIDADE', color:'#e87a45', items:[
+                        {name:'Abertura de quadril',   detail:'1 × 45s cada', rest:''},
+                        {name:'Cat-cow',               detail:'1 × 10 rep',   rest:''},
+                        {name:'Torção torácica',       detail:'1 × 8 rep',    rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Prancha frontal',       detail:'2 × 20s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'2 × 8 rep',    rest:'30s'},
+                        {name:'Prancha lateral',       detail:'1 × 20s cada', rest:'30s'},
+                        ...hikingCoreAdd,
+                    ]},
+                    { title:'FORÇA', color:'#e87a45', items:[
+                        {name:'Agachamento',           detail:'3 × 10 rep',   rest:'60s'},
+                        {name:'Push-up (joelho)',       detail:'3 × 8 rep',    rest:'60s'},
+                        {name:'Romanian deadlift',     detail:'2 × 10 rep',   rest:'75s'},
+                        ...hikingForcaAdd,
+                    ]},
+                    { title:'WORKOUT', color:'#e87a45', items:[
+                        {name:'Burpees',               detail:'2 × 5 rep',    rest:'60s'},
+                        {name:'Polichinelo',           detail:'2 × 20 rep',   rest:'30s'},
+                        ...hikingWorkoutAdd,
+                    ]},
+                ],
+                M: [
+                    { title:'MOBILIDADE', color:'#e87a45', items:[
+                        {name:'Abertura de quadril',   detail:'2 × 45s cada', rest:''},
+                        {name:'Cat-cow',               detail:'2 × 10 rep',   rest:''},
+                        {name:'Torção torácica',       detail:'1 × 10 rep',   rest:''},
+                        {name:'Mobilidade de ombro',   detail:'1 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Prancha frontal',       detail:'3 × 40s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'3 × 10 rep',   rest:'30s'},
+                        {name:'Prancha lateral',       detail:'2 × 30s cada', rest:'30s'},
+                        {name:'Hollow hold',           detail:'2 × 20s',      rest:'30s'},
+                        ...hikingCoreAdd,
+                    ]},
+                    { title:'FORÇA', color:'#e87a45', items:[
+                        {name:'Agachamento + remada',  detail:'3 × 12 rep',   rest:'90s'},
+                        {name:'Push-up',               detail:'3 × 15 rep',   rest:'60s'},
+                        {name:'Romanian deadlift',     detail:'3 × 10 rep',   rest:'90s'},
+                        {name:'Inverted row',          detail:'3 × 10 rep',   rest:'75s'},
+                        ...hikingForcaAdd,
+                    ]},
+                    { title:'WORKOUT', color:'#e87a45', items:[
+                        {name:'Burpees',               detail:'3 × 8 rep',    rest:'60s'},
+                        {name:'Mountain climbers',     detail:'2 × 20 rep',   rest:'45s'},
+                        {name:'Polichinelo',           detail:'2 × 25 rep',   rest:'30s'},
+                        ...hikingWorkoutAdd,
+                    ]},
+                ],
+                H: [
+                    { title:'MOBILIDADE', color:'#e87a45', items:[
+                        {name:'Corrida leve',          detail:'5 min',        rest:''},
+                        {name:'Abertura de quadril',   detail:'2 × 45s cada', rest:''},
+                        {name:'Mobilidade de ombro',   detail:'2 × 10 rep',   rest:''},
+                        {name:'Leg swing frontal',     detail:'2 × 10 cada',  rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Hollow hold',           detail:'4 × 30s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'4 × 12 rep',   rest:'30s'},
+                        {name:'Prancha lateral',       detail:'3 × 45s cada', rest:'30s'},
+                        {name:'Ab wheel rollout',      detail:'3 × 8 rep',    rest:'60s'},
+                        {name:'Mountain climbers',     detail:'2 × 25 rep',   rest:'45s'},
+                        ...hikingCoreAdd,
+                    ]},
+                    { title:'FORÇA', color:'#e87a45', items:[
+                        {name:'Agachamento + remada',  detail:'4 × 12 rep',   rest:'75s'},
+                        {name:'Push-up',               detail:'4 × 20 rep',   rest:'60s'},
+                        {name:'Barra / inverted row',  detail:'4 × 8 rep',    rest:'90s'},
+                        {name:'Romanian deadlift',     detail:'4 × 10 rep',   rest:'90s'},
+                        {name:'Farmer carry',          detail:'3 × 30m',      rest:'60s'},
+                        ...hikingForcaAdd,
+                    ]},
+                    { title:'WORKOUT', color:'#e87a45', items:[
+                        {name:'Burpees',               detail:'4 × 10 rep',   rest:'60s'},
+                        {name:'Mountain climbers',     detail:'3 × 25 rep',   rest:'45s'},
+                        {name:'Polichinelo',           detail:'3 × 30 rep',   rest:'30s'},
+                        {name:'Jump squat',            detail:'3 × 10 rep',   rest:'60s'},
+                        ...hikingWorkoutAdd,
                     ]},
                 ],
             },
