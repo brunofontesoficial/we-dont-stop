@@ -4604,6 +4604,7 @@
     const TODAY_IDX = (new Date().getDay() + 6) % 7;
     const PLAN_BADGE = {
         hiking:    {label:'HIKING',     bg:'rgba(74,143,217,0.12)',  c:'#4a8fd9'},
+        trapezio:  {label:'TRAPÉZIO',   bg:'rgba(74,143,217,0.12)',  c:'#4a8fd9'},
         forca:     {label:'FORÇA',      bg:'rgba(232,122,69,0.12)',  c:'#e87a45'},
         endurance: {label:'ENDURANCE',  bg:'rgba(61,184,122,0.12)',  c:'#2d6b4f'},
         core:      {label:'CORE',       bg:'rgba(155,125,212,0.12)', c:'#9b7dd4'},
@@ -4614,7 +4615,8 @@
         const scores     = aval?.scores || null;
         const dias       = Math.min(Math.max(aval?.diasSemana || 4, 1), 6);
         const esporte    = aval?.esporte || 'outro';
-        const hasHiking  = esporte === 'velejador' && aval?.tipoBarco === 'hiking';
+        const hasHiking   = esporte === 'velejador' && aval?.tipoBarco === 'hiking';
+        const hasTrapezio = esporte === 'velejador' && aval?.tipoBarco === 'sem-hiking';
         const idade      = aval?.idade || 25;
         const isChild    = idade < 13;                        // <13: criança
         const isJunior   = idade >= 13 && idade < 18;        // 13–17: junior
@@ -4662,6 +4664,12 @@
                 {name:'Hiking + série extra',  sub:'+1 série isométrica',         dur:sd(40)},
                 {name:'Técnica · vol. baixo',  sub:'Qualidade · sem fadiga',      dur:sd(20)},
             ],
+            trapezio: [
+                {name:'Trapézio + Ombro',  sub:'Força de braço e estabilidade',   dur:sd(35)},
+                {name:'Trapézio + Core',   sub:'Rotação e estabilidade lateral',   dur:sd(35)},
+                {name:'Trapézio + volume', sub:'+1 série · maior densidade',       dur:sd(40)},
+                {name:'Técnica trapézio',  sub:'Qualidade · sem fadiga',            dur:sd(20)},
+            ],
             forca: [
                 {name:forcaName,     sub:'Agachamento · remada · push-up',   dur:sd(40)},
                 {name:forcaName,     sub:'Técnica limpa · mesma carga',      dur:sd(40)},
@@ -4699,7 +4707,8 @@
         const scoreOf = t => scores?.[t === 'hiking' ? 'hiking' : t] ?? 50;
 
         const rawTypes = [
-            ...(hasHiking ? ['hiking'] : []),
+            ...(hasHiking   ? ['hiking']   : []),
+            ...(hasTrapezio ? ['trapezio'] : []),
             ...Array(enduranceW).fill('endurance'),
             ...Array(forcaW).fill('forca'),
             'core',
@@ -4984,6 +4993,75 @@
                     ]},
                 ],
             },
+            // ── TRAPÉZIO ────────────────────────────────────────────────────
+            trapezio: {
+                L: [
+                    { title:'ATIVAÇÃO', color:'#4a8fd9', items:[
+                        {name:'Polichinelo',              detail:'2 × 20 rep',      rest:'30s'},
+                        {name:'Mobilidade de ombro',      detail:'2 × 10 rep',      rest:''},
+                        {name:'Cat-cow',                  detail:'2 × 10 rep',      rest:''},
+                    ]},
+                    { title:'TRAPÉZIO BÁSICO', color:'#4a8fd9', items:[
+                        {name:'Band pull-apart',          detail:'2 × 15 rep',      rest:'45s'},
+                        {name:'Inverted row',             detail:'2 × 8 rep',       rest:'60s'},
+                        {name:'Rotação externa de ombro', detail:'2 × 10 cada',     rest:'30s'},
+                    ]},
+                    { title:'CORE ROTACIONAL', color:'#9b7dd4', items:[
+                        {name:'Russian twist',            detail:'2 × 10 rep cada', rest:'45s'},
+                        {name:'Dead bug',                 detail:'2 × 8 rep',       rest:'30s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#4a8fd9', items:[
+                        {name:'Torção torácica',          detail:'2 × 10 rep',      rest:''},
+                        {name:'Mobilidade de ombro',      detail:'2 min',           rest:''},
+                    ]},
+                ],
+                M: [
+                    { title:'ATIVAÇÃO CARDIO', color:'#4a8fd9', items:[
+                        {name:'Corrida leve',             detail:'5 min',           rest:''},
+                        {name:'Mobilidade de ombro',      detail:'2 × 12 rep',      rest:''},
+                        {name:'Leg swing frontal',        detail:'2 × 10 cada',     rest:''},
+                    ]},
+                    { title:'TRAPÉZIO + FORÇA', color:'#4a8fd9', items:[
+                        {name:'Inverted row',             detail:'3 × 10 rep',      rest:'60s'},
+                        {name:'Band pull-apart',          detail:'3 × 15 rep',      rest:'45s'},
+                        {name:'Push-up',                  detail:'3 × 12 rep',      rest:'60s'},
+                    ]},
+                    { title:'CORE ROTACIONAL', color:'#9b7dd4', items:[
+                        {name:'Russian twist',            detail:'3 × 15 rep cada', rest:'45s'},
+                        {name:'Prancha lateral',          detail:'3 × 30s cada',    rest:'30s'},
+                        {name:'Single-leg stance',        detail:'3 × 30s cada',    rest:'30s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#4a8fd9', items:[
+                        {name:'Torção torácica',          detail:'2 × 10 rep',      rest:''},
+                        {name:'90/90 de quadril',         detail:'1 × 60s cada',    rest:''},
+                        {name:'Foam roll · costas',       detail:'2 min',           rest:''},
+                    ]},
+                ],
+                H: [
+                    { title:'ATIVAÇÃO CARDIO', color:'#4a8fd9', items:[
+                        {name:'Corrida leve',             detail:'8 min',           rest:''},
+                        {name:'Mobilidade de ombro',      detail:'2 × 12 rep',      rest:''},
+                        {name:'Leg swing multi-plano',    detail:'2 × 12 cada',     rest:''},
+                    ]},
+                    { title:'TRAPÉZIO · ALTO VOLUME', color:'#4a8fd9', items:[
+                        {name:'Barra / inverted row',     detail:'4 × 8 rep',       rest:'90s'},
+                        {name:'Band pull-apart',          detail:'4 × 20 rep',      rest:'45s'},
+                        {name:'Push-up',                  detail:'4 × 15 rep',      rest:'60s'},
+                        {name:'Rotação externa de ombro', detail:'3 × 12 cada',     rest:'30s'},
+                    ]},
+                    { title:'CORE POTÊNCIA', color:'#9b7dd4', items:[
+                        {name:'Russian twist',            detail:'4 × 15 rep cada', rest:'45s'},
+                        {name:'Prancha lateral',          detail:'4 × 40s cada',    rest:'30s'},
+                        {name:'Single-leg stance',        detail:'4 × 45s cada',    rest:'30s'},
+                        {name:'Agachamento jump',         detail:'3 × 10 rep',      rest:'60s'},
+                    ]},
+                    { title:'DESAQUECIMENTO', color:'#4a8fd9', items:[
+                        {name:'Torção torácica',          detail:'3 × 10 rep',      rest:''},
+                        {name:'Pigeon pose',              detail:'2 × 60s cada',    rest:''},
+                        {name:'Foam roll · costas',       detail:'3 min',           rest:''},
+                    ]},
+                ],
+            },
             // ── FORÇA ──────────────────────────────────────────────────────
             forca: {
                 L: [
@@ -5189,6 +5267,7 @@
             const subs = {
                 'Farmer carry':         {name:'Agachamento sumô',      detail:'3 × 30s',      rest:'60s'},
                 'Barra / inverted row': {name:'Inverted row (mesa)',   detail:null,            rest:null},
+                'Barra / pull-up':      {name:'Inverted row (mesa)',   detail:null,            rest:null},
                 'Step-up lastrado':     {name:'Step-up',               detail:null,            rest:null},
                 'Ab wheel rollout':     {name:'Mountain climbers',     detail:'3 × 20 rep',    rest:'60s'},
             };
