@@ -3537,32 +3537,29 @@
         const [step, setStep]           = useState(0);
         const [nome, setNome]           = useState(profile0.firstName || '');
         const [sobrenome, setSobrenome] = useState(profile0.lastName  || '');
-        const [esporte, setEsporte]     = useState(null); // 'hiking'|'padrao'|'nautico'|'geral'
+        const [esporte, setEsporte]     = useState(null); // 'vela' | 'geral'
+        const [tipoBarco, setTipoBarco] = useState(null); // 'hiking' | 'padrao' (when esporte=vela)
         const [dias, setDias]           = useState(null);
-        const [equips, setEquips]       = useState([]);
+        const [local, setLocal]         = useState(null); // 'academia' | 'casa' | 'sem'
+        const [cardio, setCardio]       = useState(null); // 'corrida' | 'bike' | 'remo' (when local=academia)
         const [nivel, setNivel]         = useState(null);
         const [showAval, setShowAval]   = useState(false);
-        const TOTAL_STEPS = 5;
+        const TOTAL_STEPS = 4;
 
-        function toggleEquip(e) {
-            setEquips(prev => prev.includes(e) ? prev.filter(x => x !== e) : [...prev, e]);
-        }
-
-        function finish(scores, tipoBarco) {
-            const prof = { firstName: nome.trim() || 'Atleta', lastName: sobrenome.trim() };
+        function saveAndFinish(scores) {
+            const prof = { firstName: nome.trim()||'Atleta', lastName: sobrenome.trim() };
             saveProfile(prof);
+            const equipamentos = local === 'academia' ? ['Academia'] : local === 'casa' ? ['Halteres'] : ['Sem equipamento'];
+            const cardioMode   = local === 'academia' ? (cardio || 'corrida') : 'corrida';
+            saveCardioMode(cardioMode);
             saveAvaliacao({
-                esporte: ['hiking','padrao'].includes(esporte) ? 'velejador' : esporte === 'nautico' ? 'nautico' : 'geral',
-                tipoBarco: esporte === 'hiking' ? 'hiking' : esporte === 'padrao' ? 'padrao' : null,
-                hikingSecs: 0, plankSecs: 0, emomRounds: 0, pushReps: 0, pullReps: 0, squatReps: 0,
-                endType: 'cooper', endDist: '2400', mobScores: {},
-                diasSemana: dias,
-                equipamentos: equips,
-                scores,
-                setupComplete: true,
+                esporte: esporte === 'vela' ? 'velejador' : 'geral',
+                tipoBarco: tipoBarco || null,
+                hikingSecs:0, plankSecs:0, emomRounds:0, pushReps:0, pullReps:0, squatReps:0,
+                endType:'cooper', endDist:'2400', mobScores:{},
+                diasSemana: dias, equipamentos, scores, setupComplete: true,
             });
-            localStorage.setItem('regata_onboarded', '1');
-            onComplete();
+            localStorage.setItem('regata_onboarded','1');
         }
 
         function handleAvalComplete() {
@@ -3601,47 +3598,36 @@
         }
 
         const canNext = [
-            nome.trim().length > 0,                      // step 0
-            esporte !== null,                             // step 1
-            dias !== null && equips.length > 0,           // step 2
-            nivel !== null,                               // step 3
-            true,                                         // step 4 (result)
-        ][step];
+            nome.trim().length > 0,                                            // step 0
+            esporte !== null && (esporte !== 'vela' || tipoBarco !== null),    // step 1
+            dias !== null && local !== null && (local !== 'academia' || cardio !== null), // step 2
+            nivel !== null,                                                    // step 3 (result pre-save)
+        ][step] ?? true;
 
-        const ESPORTE_OPTS = [
-            { id:'hiking',  icon:'🚤', title:'Vela · Hiking',   sub:'Laser · ILCA · 49er · 29er' },
-            { id:'padrao',  icon:'⛵', title:'Vela · Padrão',   sub:'J/24 · Snipe · Dragon · Star' },
-            { id:'nautico', icon:'🌊', title:'Esporte Náutico', sub:'Windsurf · Kite · Remo' },
-            { id:'geral',   icon:'💪', title:'Atleta Geral',    sub:'Funcional · Corrida · CrossFit' },
-        ];
         const DIAS_OPTS = [2,3,4,5,6];
-        const EQUIP_OPTS = [
-            { id:'Academia',        icon:'🏋️', label:'Academia completa' },
-            { id:'Ergômetro remo',  icon:'🚣', label:'Ergômetro de remo' },
-            { id:'Bike ergométrica',icon:'🚴', label:'Bike ergométrica' },
-            { id:'Halteres',        icon:'🏠', label:'Pesos / halteres' },
-            { id:'Sem equipamento', icon:'🤸', label:'Sem equipamento' },
-        ];
         const NIVEL_OPTS = [
             { id:'iniciante',     label:'Iniciante',     sub:'Começo agora ou voltei após pausa longa' },
             { id:'intermediario', label:'Intermediário', sub:'Treino regular há pelo menos 6 meses' },
             { id:'avancado',      label:'Avançado',      sub:'Treino consistente há 2+ anos' },
             { id:'competidor',    label:'Competidor',    sub:'Atleta de alta performance / competição' },
         ];
+        const stepTitles = ['Quem é você?','Seu esporte','Como você treina?','Seu nível atual'];
 
-        const stepTitles = ['Quem é você?','Seu esporte','Como você treina?','Seu nível atual','Seu plano está pronto'];
-
-        // shared styles
-        const tile = (active) => ({
-            background: active ? '#18191f' : '#fff',
+        const tile = (active, accent) => ({
+            background: active ? (accent||'#18191f') : '#fff',
             color: active ? '#f5f0e8' : 'var(--text-dark)',
             border: active ? 'none' : '1.5px solid rgba(24,25,31,0.1)',
             borderRadius: 16, padding: '14px 16px', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8,
         });
+        const check = (active) => active ? (
+            <div style={{marginLeft:'auto',width:20,height:20,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+        ) : null;
 
         return (
-            <div style={{position:'fixed',inset:0,zIndex:400,background:'#f5f0e8',display:'flex',flexDirection:'column',overflowY:'auto'}}>
+            <div style={{position:'fixed',inset:0,zIndex:400,background:'#f5f0e8',display:'flex',flexDirection:'column'}}>
                 {/* Progress bar */}
                 <div style={{height:3,background:'rgba(24,25,31,0.08)',flexShrink:0}}>
                     <div style={{height:'100%',width:`${((step+1)/TOTAL_STEPS)*100}%`,background:'#c84b38',transition:'width 0.3s'}}/>
@@ -3684,24 +3670,57 @@
                     {step === 1 && (
                         <div>
                             <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',marginBottom:20,lineHeight:1.5}}>
-                                O plano muda dependendo do seu esporte. Seja honesto — isso importa.
+                                O plano muda dependendo do seu esporte. Isso importa muito.
                             </div>
-                            {ESPORTE_OPTS.map(o => (
-                                <div key={o.id} style={tile(esporte===o.id)} onClick={() => setEsporte(o.id)}>
-                                    <div style={{fontSize:24,flexShrink:0}}>{o.icon}</div>
-                                    <div>
-                                        <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{o.title}</div>
-                                        <div style={{fontSize:11,opacity:0.55}}>{o.sub}</div>
-                                    </div>
-                                    {esporte===o.id && <div style={{marginLeft:'auto',width:20,height:20,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                    </div>}
+
+                            {/* Vela */}
+                            <div style={tile(esporte==='vela')} onClick={() => { setEsporte('vela'); }}>
+                                <div style={{fontSize:24,flexShrink:0}}>⛵</div>
+                                <div style={{flex:1}}>
+                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Vela</div>
+                                    <div style={{fontSize:11,opacity:0.55}}>Laser · ILCA · J/24 · Snipe · 49er · qualquer barco</div>
                                 </div>
-                            ))}
+                                {check(esporte==='vela')}
+                            </div>
+
+                            {/* Sub-seleção de tipo de barco — aparece quando Vela está selecionado */}
+                            {esporte === 'vela' && (
+                                <div style={{marginLeft:16,marginTop:-4,marginBottom:8,display:'flex',flexDirection:'column',gap:6}}>
+                                    {[
+                                        { id:'hiking', icon:'🚤', label:'Com hiking', sub:'Laser · ILCA · 29er · 49er · 470' },
+                                        { id:'padrao', icon:'⛵', label:'Sem hiking', sub:'J/24 · Snipe · Dragon · Sportboat · Match' },
+                                    ].map(o => (
+                                        <div key={o.id} onClick={() => setTipoBarco(o.id)}
+                                            style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:12,cursor:'pointer',
+                                                background: tipoBarco===o.id ? 'rgba(200,75,56,0.08)' : 'rgba(24,25,31,0.04)',
+                                                border: tipoBarco===o.id ? '1.5px solid rgba(200,75,56,0.3)' : '1.5px solid transparent',
+                                            }}>
+                                            <div style={{fontSize:18}}>{o.icon}</div>
+                                            <div style={{flex:1}}>
+                                                <div style={{fontSize:13,fontWeight:700,color:'var(--text-dark)'}}>{o.label}</div>
+                                                <div style={{fontSize:11,color:'rgba(24,25,31,0.45)'}}>{o.sub}</div>
+                                            </div>
+                                            {tipoBarco===o.id && <div style={{width:16,height:16,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                                <svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                            </div>}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Atleta Geral */}
+                            <div style={tile(esporte==='geral')} onClick={() => { setEsporte('geral'); setTipoBarco(null); }}>
+                                <div style={{fontSize:24,flexShrink:0}}>💪</div>
+                                <div style={{flex:1}}>
+                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Atleta Geral</div>
+                                    <div style={{fontSize:11,opacity:0.55}}>Funcional · Corrida · CrossFit · outro esporte</div>
+                                </div>
+                                {check(esporte==='geral')}
+                            </div>
                         </div>
                     )}
 
-                    {/* STEP 2: Dias + Equipamentos */}
+                    {/* STEP 2: Dias + Local */}
                     {step === 2 && (
                         <div>
                             <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:10}}>DIAS POR SEMANA</div>
@@ -3715,17 +3734,61 @@
                                     }}>{d}</button>
                                 ))}
                             </div>
-                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:10}}>ONDE / O QUE VOCÊ TEM</div>
-                            <div style={{fontSize:12,color:'rgba(24,25,31,0.45)',marginBottom:12}}>Selecione tudo que se aplica</div>
-                            {EQUIP_OPTS.map(e => (
-                                <div key={e.id} style={tile(equips.includes(e.id))} onClick={() => toggleEquip(e.id)}>
-                                    <div style={{fontSize:22,flexShrink:0}}>{e.icon}</div>
-                                    <div style={{fontSize:14,fontWeight:600}}>{e.label}</div>
-                                    {equips.includes(e.id) && <div style={{marginLeft:'auto',width:20,height:20,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                    </div>}
+
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:12}}>ONDE VOCÊ TREINA?</div>
+
+                            {/* Academia */}
+                            <div style={tile(local==='academia')} onClick={() => setLocal('academia')}>
+                                <div style={{fontSize:24,flexShrink:0}}>🏋️</div>
+                                <div style={{flex:1}}>
+                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Academia completa</div>
+                                    <div style={{fontSize:11,opacity:0.55}}>Musculação · cardio · halteres · máquinas</div>
                                 </div>
-                            ))}
+                                {check(local==='academia')}
+                            </div>
+
+                            {/* Sub-seleção cardio — aparece quando Academia selecionado */}
+                            {local === 'academia' && (
+                                <div style={{marginLeft:16,marginTop:-4,marginBottom:8}}>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:8}}>PREFERÊNCIA DE CARDIO</div>
+                                    <div style={{display:'flex',gap:8}}>
+                                        {[
+                                            { id:'corrida', icon:'🏃', label:'Corrida' },
+                                            { id:'bike',    icon:'🚴', label:'Bike' },
+                                            { id:'remo',    icon:'🚣', label:'Remo' },
+                                        ].map(o => (
+                                            <button key={o.id} onClick={() => setCardio(o.id)} style={{
+                                                flex:1, padding:'10px 4px', border:'none', borderRadius:12, cursor:'pointer', fontSize:11, fontWeight:700,
+                                                background: cardio===o.id ? '#c84b38' : 'rgba(24,25,31,0.06)',
+                                                color: cardio===o.id ? '#fff' : 'rgba(24,25,31,0.5)',
+                                            }}>
+                                                <div style={{fontSize:18,marginBottom:2}}>{o.icon}</div>
+                                                {o.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Casa */}
+                            <div style={tile(local==='casa')} onClick={() => { setLocal('casa'); setCardio(null); }}>
+                                <div style={{fontSize:24,flexShrink:0}}>🏠</div>
+                                <div style={{flex:1}}>
+                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Em casa</div>
+                                    <div style={{fontSize:11,opacity:0.55}}>Pesos livres · halteres · barras</div>
+                                </div>
+                                {check(local==='casa')}
+                            </div>
+
+                            {/* Sem equipamento */}
+                            <div style={tile(local==='sem')} onClick={() => { setLocal('sem'); setCardio(null); }}>
+                                <div style={{fontSize:24,flexShrink:0}}>🤸</div>
+                                <div style={{flex:1}}>
+                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Sem equipamento</div>
+                                    <div style={{fontSize:11,opacity:0.55}}>Peso corporal · parque · ao ar livre</div>
+                                </div>
+                                {check(local==='sem')}
+                            </div>
                         </div>
                     )}
 
@@ -3749,37 +3812,9 @@
                                         <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{o.label}</div>
                                         <div style={{fontSize:11,opacity:0.55}}>{o.sub}</div>
                                     </div>
-                                    {nivel===o.id && <div style={{width:20,height:20,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                    </div>}
+                                    {check(nivel===o.id)}
                                 </div>
                             ))}
-                        </div>
-                    )}
-
-                    {/* STEP 4: Resultado */}
-                    {step === 4 && (
-                        <div style={{textAlign:'center',paddingTop:16}}>
-                            <div style={{fontSize:64,marginBottom:16}}>🎯</div>
-                            <div style={{fontSize:24,fontWeight:700,color:'var(--text-dark)',marginBottom:8,fontFamily:'var(--font-serif)'}}>
-                                Plano pronto, {nome || 'atleta'}.
-                            </div>
-                            <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',lineHeight:1.6,marginBottom:28}}>
-                                {dias} dias por semana · {esporte === 'hiking' ? 'Vela Hiking' : esporte === 'padrao' ? 'Vela Padrão' : esporte === 'nautico' ? 'Esporte Náutico' : 'Atleta Geral'} · Nível {NIVEL_OPTS.find(o=>o.id===nivel)?.label || 'definido'}
-                            </div>
-                            <div style={{background:'#fff',borderRadius:16,padding:'16px',marginBottom:20,textAlign:'left'}}>
-                                {[
-                                    { label:'Semanas', val:'4 semanas periodizadas' },
-                                    { label:'Foco',    val: esporte==='hiking' ? 'Hiking + Core + Endurance' : esporte==='padrao'?'Força + Core + Endurance':'Condicionamento geral' },
-                                    { label:'Cardio',  val: equips.includes('Ergômetro remo')?'Remo Z2 prioritário':equips.includes('Bike ergométrica')?'Bike + Corrida Z2':'Corrida Z2' },
-                                    { label:'Testes',  val: nivel ? 'Refine pelo menu Perfil quando quiser' : 'Baseado nos testes que você fez' },
-                                ].map(r => (
-                                    <div key={r.label} style={{display:'flex',gap:12,padding:'8px 0',borderBottom:'1px solid rgba(24,25,31,0.06)'}}>
-                                        <div style={{fontSize:11,fontWeight:700,color:'rgba(24,25,31,0.4)',width:64,flexShrink:0}}>{r.label}</div>
-                                        <div style={{fontSize:13,color:'var(--text-dark)'}}>{r.val}</div>
-                                    </div>
-                                ))}
-                            </div>
                         </div>
                     )}
                 </div>
@@ -3790,26 +3825,10 @@
                         disabled={!canNext}
                         onClick={() => {
                             if (step < 3) { setStep(s => s + 1); return; }
-                            if (step === 3) {
-                                // Save partial (level-based) and go to result
-                                const scores = OB_LEVEL_SCORES[nivel] || OB_LEVEL_SCORES.intermediario;
-                                setStep(4);
-                                // Pre-save so result screen has data
-                                const prof = { firstName: nome.trim()||'Atleta', lastName: sobrenome.trim() };
-                                saveProfile(prof);
-                                saveAvaliacao({
-                                    esporte: ['hiking','padrao'].includes(esporte)?'velejador':esporte==='nautico'?'nautico':'geral',
-                                    tipoBarco: esporte==='hiking'?'hiking':esporte==='padrao'?'padrao':null,
-                                    hikingSecs:0,plankSecs:0,emomRounds:0,pushReps:0,pullReps:0,squatReps:0,
-                                    endType:'cooper',endDist:'2400',mobScores:{},
-                                    diasSemana:dias, equipamentos:equips, scores, setupComplete:true,
-                                });
-                                return;
-                            }
-                            if (step === 4) {
-                                localStorage.setItem('regata_onboarded','1');
-                                onComplete();
-                            }
+                            // step 3 — save and unlock
+                            const scores = OB_LEVEL_SCORES[nivel] || OB_LEVEL_SCORES.intermediario;
+                            saveAndFinish(scores);
+                            onComplete();
                         }}
                         style={{
                             width:'100%', padding:15,
@@ -3818,7 +3837,7 @@
                             border:'none', borderRadius:50, fontSize:13, fontWeight:700,
                             letterSpacing:0.5, cursor: canNext ? 'pointer' : 'default',
                         }}>
-                        {step === 4 ? 'ACESSAR MEU PLANO →' : 'CONTINUAR'}
+                        {step === 3 ? 'GERAR MEU PLANO →' : 'CONTINUAR'}
                     </button>
                 </div>
             </div>
