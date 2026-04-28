@@ -1827,6 +1827,7 @@
 
     function TSBChart({ data }) {
         if (!data || data.every(d => d.ctl === 0)) return null;
+        if (data.length === 1) return null;
 
         const W = 300, H = 60;
         const maxLoad  = Math.max(...data.map(d => Math.max(d.ctl, d.atl)), 1);
