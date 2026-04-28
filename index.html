@@ -1865,7 +1865,7 @@
                 const latest   = series.length ? series[series.length - 1][field] : null;
                 const baseline = getMetricBaseline(field, avgDays);
                 const delta    = (latest && baseline) ? Math.round((latest / baseline - 1) * 100) : null;
-                const deltaPos = invert ? delta <= 0 : delta >= 0;
+                const deltaPos = delta !== null && (invert ? delta <= 0 : delta >= 0);
                 return { name, color, latest, baseline: baseline ? Math.round(baseline * 10) / 10 : null, delta, deltaPos, unit, series: series.map(e => e[field] || 0) };
             }
             const today = new Date();
