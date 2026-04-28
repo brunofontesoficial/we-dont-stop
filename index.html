@@ -3511,6 +3511,18 @@
         );
     }
 
+    const OB_SLIDES = [
+        { bg:'#090f1e', tc:'#f5f0e8', mc:'rgba(245,240,232,0.42)',
+          title:'We don\'t stop', desc:'Todo dia. Mesmo que seja 10 minutos. A corda não é sobre intensidade — é sobre não soltar.',
+          btnBg:'#c84b38', btnC:'#fff', da:'#c84b38', di:'rgba(245,240,232,0.18)', btnTxt:'CONTINUAR' },
+        { bg:'#f0c52e', tc:'#18191f', mc:'rgba(24,25,31,0.5)',
+          title:'No mimimi', desc:'Vento ruim, mar formado, dia duro. Respira. E vai. O campeão não é quem tem o melhor dia — é quem não desiste no pior.',
+          btnBg:'#18191f', btnC:'#f5f0e8', da:'#18191f', di:'rgba(24,25,31,0.18)', btnTxt:'CONTINUAR' },
+        { bg:'#c84b38', tc:'#f5f0e8', mc:'rgba(245,240,232,0.6)',
+          title:'Seu nível.\nSeu plano.', desc:'Respondemos algumas perguntas rápidas — seu esporte, seus dias, seu equipamento — e o plano é seu.',
+          btnBg:'#ffffff', btnC:'#18191f', da:'#f5f0e8', di:'rgba(245,240,232,0.28)', btnTxt:'MONTAR MEU PLANO →' },
+    ];
+
     const OB_LEVEL_SCORES = {
         iniciante:     { core:20,  forca:20,  endurance:20,  hiking:20,  mobilidade:40 },
         intermediario: { core:52,  forca:52,  endurance:52,  hiking:52,  mobilidade:62 },
@@ -3520,6 +3532,8 @@
 
     function TelaOnboarding({ onComplete }) {
         const profile0 = getProfile();
+        const [slideIdx, setSlideIdx]   = useState(0);
+        const [inWizard, setInWizard]   = useState(false);
         const [step, setStep]           = useState(0);
         const [nome, setNome]           = useState(profile0.firstName || '');
         const [sobrenome, setSobrenome] = useState(profile0.lastName  || '');
@@ -3560,6 +3574,31 @@
 
         // If user chose to do full tests
         if (showAval) return <TelaAvaliacao onClose={handleAvalComplete}/>;
+
+        // Motivational slides phase
+        if (!inWizard) {
+            const s = OB_SLIDES[slideIdx];
+            const isLast = slideIdx === OB_SLIDES.length - 1;
+            return (
+                <div className="ob-wrap" style={{background: s.bg}}>
+                    <div className="ob-body">
+                        <div className="ob-title" style={{color: s.tc, whiteSpace:'pre-line'}}>{s.title}</div>
+                        <div className="ob-desc" style={{color: s.mc}}>{s.desc}</div>
+                    </div>
+                    <div className="ob-footer">
+                        <div className="ob-dots">
+                            {OB_SLIDES.map((_,i) => (
+                                <div key={i} className="ob-dot" style={{background: i <= slideIdx ? s.da : s.di}}/>
+                            ))}
+                        </div>
+                        <button className="ob-cta" style={{background:s.btnBg, color:s.btnC, border:'none'}}
+                            onClick={() => isLast ? setInWizard(true) : setSlideIdx(i => i+1)}>
+                            {s.btnTxt}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
 
         const canNext = [
             nome.trim().length > 0,                      // step 0
