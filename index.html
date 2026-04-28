@@ -1856,30 +1856,67 @@
 
     function TelaPulso() {
         const [period, setPeriod] = useState('7d');
-        const metrics = [
-            { name: 'HRV',        source: 'Whoop',  val: '58',   unit: 'ms',    delta: '+12%', pos: true,  color: '#3db87a', data: [48,52,51,55,54,57,58] },
-            { name: 'FC REPOUSO', source: 'Whoop',  val: '47',   unit: 'bpm',   delta: '-3%',  pos: true,  color: '#4a8fd9', data: [52,50,49,51,48,47,47] },
-            { name: 'SONO',       source: 'Whoop',  val: '7h24', unit: 'med',   delta: '+8%',  pos: true,  color: '#9b7dd4', data: [6.5,7,6.8,7.2,7.5,7.4,7.4] },
-            { name: 'CARGA',      source: 'Garmin', val: '460',  unit: 'TSS/d', delta: 'ótimo',pos: true,  color: '#e87a45', data: [380,420,390,450,440,480,460] },
-        ];
+        const periodDays = { '7d': 7, '30d': 30, '90d': 90 }[period] || 7;
+
+        const metrics = React.useMemo(() => {
+            const loads = getDailyLoads();
+            function makeMetric(field, name, color, avgDays, unit, invert) {
+                const series   = getMetricSeries(field, periodDays);
+                const latest   = series.length ? series[series.length - 1][field] : null;
+                const baseline = getMetricBaseline(field, avgDays);
+                const delta    = (latest && baseline) ? Math.round((latest / baseline - 1) * 100) : null;
+                const deltaPos = invert ? delta <= 0 : delta >= 0;
+                return { name, color, latest, baseline: baseline ? Math.round(baseline * 10) / 10 : null, delta, deltaPos, unit, series: series.map(e => e[field] || 0) };
+            }
+            const today = new Date();
+            const cargaSeries = Array.from({ length: periodDays }, (_, i) => {
+                const d = new Date(today);
+                d.setDate(today.getDate() - (periodDays - 1 - i));
+                return loads[d.toLocaleDateString('sv')] || 0;
+            });
+            const cargaPositive = cargaSeries.filter(v => v > 0);
+            const cargaLatest   = cargaSeries[cargaSeries.length - 1] || null;
+            const cargaAvg      = cargaPositive.length ? cargaPositive.reduce((a, b) => a + b, 0) / cargaPositive.length : null;
+            const cargaDelta    = cargaLatest && cargaAvg ? Math.round((cargaLatest / cargaAvg - 1) * 100) : null;
+            return [
+                makeMetric('hrv',       'HRV',        '#4a8fd9', 28, 'ms',  false),
+                makeMetric('fcRepouso', 'FC REPOUSO', '#3db87a', 28, 'bpm', true),
+                makeMetric('sono',      'SONO',       '#9b7dd4', 7,  'h',   false),
+                { name:'CARGA', color:'#e87a45', latest: cargaLatest ? Math.round(cargaLatest*10)/10 : null,
+                  baseline: cargaAvg ? Math.round(cargaAvg*10)/10 : null, delta: cargaDelta, deltaPos: cargaDelta !== null && cargaDelta >= 0,
+                  unit:'UA', series: cargaSeries },
+            ];
+        }, [period]);
+
+        const tsbData = React.useMemo(() => buildTSBData(periodDays), [period]);
+
+        const readiness   = calcReadiness();
+        const readinessPh = !readiness ? 'Faça o check-in diário.'
+                          : readiness >= 80 ? 'Dia de atacar.'
+                          : readiness >= 65 ? 'Mar calmo.'
+                          : readiness >= 50 ? 'Treino moderado.'
+                          : 'Escuta o corpo.';
+
+        const latestTSB  = tsbData.length ? tsbData[tsbData.length - 1].tsb : 0;
+        const formaLabel = latestTSB > 5   ? 'Em ascensão.'
+                         : latestTSB < -10  ? 'Acumulando fadiga.'
+                         :                    'Estável.';
+        const formaColor = latestTSB > 5   ? '#3db87a'
+                         : latestTSB < -10  ? '#e87a45'
+                         :                    'rgba(245,240,232,0.6)';
+        const noTSBData  = tsbData.every(d => d.ctl === 0);
+
         return (
             <div>
                 <div className="page-header pad">
-                    <div className="overline" style={{marginBottom:6}}>HOJE · 21 ABR · 06:42</div>
+                    <div className="overline" style={{marginBottom:6}}>{new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short'}).toUpperCase()}</div>
                     <div className="page-title">Pulso</div>
                     <div className="readiness-big-card">
-                        <ReadinessCircle score={72} size={90}/>
+                        <ReadinessCircle score={readiness} size={90}/>
                         <div className="readiness-detail">
                             <div className="card-label">READINESS</div>
-                            <div className="readiness-hl">Pronto pra treino forte.</div>
-                            <div className="readiness-rows">
-                                {[{k:'HRV',v:'58ms',d:'+6'},{k:'Sono',v:'7h24',d:'92%'},{k:'FC repouso',v:'47',d:'-2'}].map((r,i) => (
-                                    <div key={i} className="readiness-row">
-                                        <span className="readiness-key">{r.k}</span>
-                                        <span><span className="readiness-val">{r.v}</span><span className="readiness-delta">{r.d}</span></span>
-                                    </div>
-                                ))}
-                            </div>
+                            <div className="readiness-hl">{readinessPh}</div>
+                            {!readiness && <div style={{fontSize:11,color:'rgba(245,240,232,0.4)',marginTop:4}}>Faça o check-in para ver seu score.</div>}
                         </div>
                     </div>
                     <div className="period-bar">
@@ -1892,31 +1929,61 @@
                             <div key={i} className="metric-card">
                                 <div className="metric-hdr">
                                     <span className="metric-name-txt">{m.name}</span>
-                                    <span style={{color:m.color,fontSize:8}}>{m.source}</span>
                                 </div>
-                                <div style={{display:'flex',alignItems:'baseline',gap:4,marginBottom:2}}>
-                                    <span className="metric-val">{m.val}</span>
-                                    <span className="metric-unit">{m.unit}</span>
-                                </div>
-                                <div className={`metric-delta ${m.pos?'d-pos':'d-neg'}`}>{m.delta}</div>
-                                <div className="sparkline-wrap"><Sparkline data={m.data} color={m.color}/></div>
+                                {m.latest !== null ? (
+                                    <React.Fragment>
+                                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:6}}>
+                                            <div>
+                                                <span className="metric-val">{m.latest}</span>
+                                                <span className="metric-unit"> {m.unit}</span>
+                                                <div style={{fontSize:8,color:'rgba(245,240,232,0.35)',marginTop:1}}>HOJE</div>
+                                            </div>
+                                            {m.baseline !== null && (
+                                                <div style={{textAlign:'right'}}>
+                                                    <span style={{fontSize:15,fontWeight:600,color:m.color,fontFamily:'var(--font-display)'}}>{m.baseline}</span>
+                                                    <span style={{fontSize:9,color:'rgba(245,240,232,0.4)'}}> {m.unit}</span>
+                                                    <div style={{fontSize:8,color:'rgba(245,240,232,0.35)',marginTop:1}}>MÉD {m.name==='SONO'?'7D':'28D'}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {m.delta !== null && (
+                                            <div style={{display:'inline-block',background:m.deltaPos?'rgba(61,184,122,0.12)':'rgba(232,122,69,0.12)',border:`1px solid ${m.deltaPos?'rgba(61,184,122,0.3)':'rgba(232,122,69,0.3)'}`,borderRadius:20,padding:'2px 8px',fontSize:9,fontWeight:700,color:m.deltaPos?'#3db87a':'#e87a45',marginBottom:8}}>
+                                                {m.deltaPos?'▲':'▼'} {Math.abs(m.delta)}%
+                                            </div>
+                                        )}
+                                        <div className="sparkline-wrap">
+                                            <Sparkline data={m.series} color={m.color} avgLine={m.baseline}/>
+                                        </div>
+                                    </React.Fragment>
+                                ) : (
+                                    <div style={{paddingTop:8}}>
+                                        <div className="metric-val">—</div>
+                                        <div style={{fontSize:9,color:'rgba(245,240,232,0.35)',marginTop:4}}>registre no check-in</div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
                     <div className="forma-card">
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
-                            <div><div className="forma-lbl">FORMA</div><div className="forma-mood">Em ascensão.</div></div>
-                            <div style={{textAlign:'right'}}><div className="forma-val">+8</div><div className="forma-unit">TSB</div></div>
+                            <div><div className="forma-lbl">FORMA</div><div className="forma-mood" style={{color:formaColor}}>{formaLabel}</div></div>
+                            {!noTSBData && <div style={{textAlign:'right'}}><div className="forma-val">{latestTSB > 0 ? '+' : ''}{latestTSB}</div><div className="forma-unit">TSB</div></div>}
                         </div>
-                        <TSBChart/>
-                        <div style={{display:'flex',gap:14,marginTop:10}}>
-                            {[{c:'rgba(61,184,122,0.8)',l:'Fitness 68'},{c:'rgba(232,122,69,0.8)',l:'Fatiga 60'},{c:'rgba(245,240,232,0.45)',l:'Forma +8'}].map((it,i)=>(
-                                <div key={i} style={{display:'flex',alignItems:'center',gap:4}}>
-                                    <div style={{width:7,height:7,borderRadius:'50%',background:it.c}}/>
-                                    <span style={{fontSize:10,color:'var(--muted-dark)'}}>{it.l}</span>
+                        {noTSBData ? (
+                            <div style={{fontSize:11,color:'rgba(245,240,232,0.4)',padding:'8px 0'}}>Complete sessões para ver sua curva de forma.</div>
+                        ) : (
+                            <React.Fragment>
+                                <TSBChart data={tsbData}/>
+                                <div style={{display:'flex',gap:14,marginTop:10}}>
+                                    {[{c:'rgba(61,184,122,0.8)',l:'Fitness'},{c:'rgba(232,122,69,0.8)',l:'Fatiga'},{c:'rgba(245,240,232,0.5)',l:'Forma'}].map((it,i)=>(
+                                        <div key={i} style={{display:'flex',alignItems:'center',gap:4}}>
+                                            <div style={{width:7,height:7,borderRadius:'50%',background:it.c}}/>
+                                            <span style={{fontSize:10,color:'var(--muted-dark)'}}>{it.l}</span>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            </React.Fragment>
+                        )}
                     </div>
                     <div style={{background:'#fff',borderRadius:16,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,marginBottom:10,cursor:'pointer'}}>
                         <div style={{display:'flex',position:'relative',height:28,width:76,flexShrink:0}}>
@@ -1929,13 +1996,6 @@
                             <div style={{fontSize:11,color:'var(--muted-light)'}}>Sincronizadas há 2min · ver todas</div>
                         </div>
                         <span className="chevron">›</span>
-                    </div>
-                    <div style={{background:'rgba(240,197,46,0.12)',borderRadius:16,padding:'14px 16px',marginBottom:14,display:'flex',gap:12,alignItems:'flex-start'}}>
-                        <div style={{fontSize:13,color:'var(--orange)',fontWeight:700,flexShrink:0,lineHeight:1.2}}>!</div>
-                        <div>
-                            <div style={{fontSize:9,fontWeight:700,letterSpacing:'1.6px',textTransform:'uppercase',color:'var(--orange)',marginBottom:4}}>MONITORAR</div>
-                            <div style={{fontSize:12,color:'var(--text-dark)',lineHeight:1.55}}>Carga acumulada 14 dias subiu 18% — segue na faixa boa, mas observe HRV nos próximos 3 dias.</div>
-                        </div>
                     </div>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
                         <div style={{fontSize:9,fontWeight:600,letterSpacing:'1.6px',textTransform:'uppercase',color:'var(--muted-dark)'}}>ÚLTIMA SAÍDA DO MAR</div>
