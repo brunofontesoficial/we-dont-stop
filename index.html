@@ -1274,26 +1274,7 @@
         const bioAlerts  = React.useMemo(() => getBiometricAlerts(), []);
 
         // Readiness: biometric-based (priority) or aval proxy
-        const readiness = (() => {
-            if (hasBioToday) {
-                const b = bioToday;
-                let score = 0, parts = 0;
-                if (b.hrv > 0) {
-                    const log = getBiometricLog().filter(e => e.hrv > 0);
-                    const avg = log.length > 1 ? log.slice(0,-1).reduce((a,e) => a + e.hrv, 0) / (log.length - 1) : b.hrv;
-                    score += Math.min(Math.round((b.hrv / avg) * 65), 90); parts++;
-                }
-                if (b.disposicao > 0) { score += Math.round((b.disposicao / 5) * 85); parts++; }
-                if (b.sono > 0) { score += Math.min(Math.round((b.sono / 8) * 85), 90); parts++; }
-                if (parts > 0) return Math.min(Math.round(score / parts), 99);
-            }
-            if (!aval?.scores) return null;
-            const s = aval.scores;
-            const vals = [s.core, s.forca, s.endurance, s.mobilidade].filter(v => typeof v === 'number');
-            if (!vals.length) return null;
-            const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
-            return Math.round(40 + avg * 0.55);
-        })();
+        const readiness = calcReadiness();
         const readinessPhrase = !readiness ? 'Bom dia.' : readiness >= 80 ? 'Dia de atacar.' : readiness >= 65 ? 'Mar calmo.' : readiness >= 50 ? 'Treino moderado.' : 'Escuta o corpo.';
         const readinessSub    = !readiness ? 'Faça o check-in diário para ver seu readiness.' : readiness >= 80 ? 'Siga o plano sem alterar. Dia de performance.' : readiness >= 65 ? 'Siga o plano do dia sem mexer.' : readiness >= 50 ? 'Reduza volume se sentir cansaço.' : 'Priorize recuperação e mobilidade.';
         const readinessLabel  = hasBioToday ? 'READINESS · CHECK-IN' : readiness ? 'READINESS · ESTIMADO' : 'READINESS · DIÁRIO';
@@ -3411,6 +3392,7 @@
                     <div style={{background:'#fff',borderRadius:16,padding:'20px 18px',marginBottom:16}}>
                         <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:16}}>CHECK-IN · HOJE</div>
                         <ScoreRow label="HRV (ms) — do seu relógio ou app" field="hrv"        max={120} unit=" ms" color="#4a8fd9"/>
+                        <ScoreRow label="FC Repouso (bpm)"                  field="fcRepouso"  max={100} unit=" bpm" color="#3db87a"/>
                         <ScoreRow label="Disposição (1–5)"                  field="disposicao" max={5}   unit="/5"  color="#e87a45"/>
                         <ScoreRow label="Horas de sono"                     field="sono"       max={10}  unit="h"   color="#9b7dd4"/>
                         <div style={{position:'sticky',bottom:0,background:'#fff',paddingTop:8,paddingBottom:'max(8px,env(safe-area-inset-bottom,8px))'}}>
