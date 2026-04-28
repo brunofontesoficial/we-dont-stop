@@ -4852,36 +4852,6 @@
         const forcaNamePlus = hasAcademia ? 'Musculação +carga' : 'Circuito +1 série';
 
         const DAY_NAMES = {
-            endurance: [
-                {name:C.base,        sub:C.sub,                              dur:sd(40), cardioMode},
-                {name:C.base,        sub:'Ritmo estável · mesma carga',      dur:sd(40), cardioMode},
-                {name:C.var,         sub:'Variação de ritmo',                dur:sd(50), cardioMode},
-                {name:C.leve,        sub:'Ritmo confortável · Z1–Z2',        dur:sd(30), cardioMode},
-            ],
-            hiking: [
-                {name:'Hiking bench + Core',   sub:'Isometria + prancha EMOM',   dur:sd(35)},
-                {name:'Hiking + Hollow rocks', sub:'Qualidade > quantidade',      dur:sd(35)},
-                {name:'Hiking + série extra',  sub:'+1 série isométrica',         dur:sd(40)},
-                {name:'Técnica · vol. baixo',  sub:'Qualidade · sem fadiga',      dur:sd(20)},
-            ],
-            trapezio: [
-                {name:'Trapézio + Ombro',  sub:'Força de braço e estabilidade',   dur:sd(35)},
-                {name:'Trapézio + Core',   sub:'Rotação e estabilidade lateral',   dur:sd(35)},
-                {name:'Trapézio + volume', sub:'+1 série · maior densidade',       dur:sd(40)},
-                {name:'Técnica trapézio',  sub:'Qualidade · sem fadiga',            dur:sd(20)},
-            ],
-            forca: [
-                {name:forcaName,     sub:'Agachamento · remada · push-up',   dur:sd(40)},
-                {name:forcaName,     sub:'Técnica limpa · mesma carga',      dur:sd(40)},
-                {name:forcaNamePlus, sub:'Volume ligeiramente aumentado',    dur:sd(45)},
-                {name:'Circuito reduzido',     sub:'Metade do volume habitual',   dur:sd(25)},
-            ],
-            core: [
-                {name:'Core funcional',        sub:'Hollow hold · dead bug · prancha', dur:sd(30)},
-                {name:'Core estabilidade',     sub:'Foco em técnica e respiração',     dur:sd(30)},
-                {name:'Core + volume',         sub:'Série extra · maior densidade',    dur:sd(30)},
-                {name:'Core + mobilidade',     sub:'Suave · sem intensidade alta',     dur:sd(20)},
-            ],
             ativo: [
                 {name:'Mobilidade ativa',      sub:'Rolamento + alongamento',     dur:'20 min'},
                 {name:'Mobilidade ativa',      sub:'Mobilidade de quadril',       dur:'20 min'},
@@ -4896,6 +4866,24 @@
             ],
         };
         function d(type, wi) { return { type, ...DAY_NAMES[type][Math.min(wi,3)] }; }
+
+        const DAY_TEMPLATES = {
+            forca_day: {
+                L: { name: forcaName,      sub: 'Mobilidade · Core · Força · Workout',       dur: sd(60) },
+                M: { name: forcaName,      sub: 'Técnica limpa · mesma intensidade',          dur: sd(60) },
+                H: { name: forcaNamePlus,  sub: 'Sobrecarga · +volume em Força e Workout',    dur: sd(70) },
+            },
+            endurance_day: {
+                L: { name: C.base,         sub: 'Mobilidade · Core · ' + C.sub,               dur: sd(50) },
+                M: { name: C.base,         sub: 'Técnica e ritmo constante · Z2',             dur: sd(55) },
+                H: { name: C.var,          sub: 'Volume aumentado · Z2–3',                    dur: sd(60) },
+            },
+            sailing_endurance: {
+                L: { name: 'Endurance Específico · Vela',  sub: 'Z2 + hiking isométrico',      dur: sd(45) },
+                M: { name: 'Endurance Específico · Vela',  sub: 'Z2 + hiking isométrico',      dur: sd(50) },
+                H: { name: 'Endurance Específico · Vela',  sub: 'Z2–3 + hiking alto volume',   dur: sd(55) },
+            },
+        };
 
         // Build candidate pool by sport + objetivo: weak areas first, emphasis applied
         const objetivo   = aval?.objetivo || null;
