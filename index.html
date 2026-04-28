@@ -4885,30 +4885,6 @@
             },
         };
 
-        // Build candidate pool by sport + objetivo: weak areas first, emphasis applied
-        const objetivo   = aval?.objetivo || null;
-        const enduranceW = 2;
-        const forcaW     = esporte === 'crossfit' ? 2
-                         : objetivo === 'Performance' || objetivo === 'Competir' ? 2 : 1;
-
-        const scoreOf = t => scores?.[t === 'hiking' ? 'hiking' : t] ?? 50;
-
-        const rawTypes = [
-            ...(hasHiking   ? ['hiking']   : []),
-            ...(hasTrapezio ? ['trapezio'] : []),
-            ...Array(enduranceW).fill('endurance'),
-            ...Array(forcaW).fill('forca'),
-            'core',
-        ];
-
-        // Dedupe, sort unique types by score (weakest first), then re-expand
-        const unique = [...new Set(rawTypes)].sort((a,b) => scoreOf(a) - scoreOf(b));
-        const candidates = unique.flatMap(t => Array(rawTypes.filter(x=>x===t).length).fill(t));
-
-        const pool = [];
-        for (let i = 0; pool.length < dias; i++) {
-            pool.push(candidates[i % candidates.length]);
-        }
 
         // Week patterns (0=SEG … 6=DOM)
         const patterns = {
@@ -4940,16 +4916,17 @@
         }
 
         function buildWeek(wi) {
-            const seen = {};
-            return Array.from({length:7}, (_,dayIdx) => {
+            const isOverload = wi === 2;
+            const dayCount = pat.train.length;
+            const startsWithForce = (dayCount % 2 === 0) ? true : isOverload;
+            const tier = wi === 2 ? 'H' : wi === 1 ? 'M' : 'L';
+            return Array.from({ length: 7 }, (_, dayIdx) => {
                 const ti = pat.train.indexOf(dayIdx);
                 if (ti >= 0) {
-                    const type = pool[ti] || 'forca';
-                    const occ = seen[type] || 0;
-                    seen[type] = occ + 1;
-                    // Offset by occ*2 so repeated types in the same week use different DAY_NAMES entries
-                    const nameIdx = (wi + occ * 2) % 4;
-                    return { type, ...DAY_NAMES[type][nameIdx] };
+                    const isForce = (ti % 2 === 0) === startsWithForce;
+                    let type = isForce ? 'forca_day' : 'endurance_day';
+                    if (!isForce && hasHiking && ti % 2 === 1) type = 'sailing_endurance';
+                    return { type, ...DAY_TEMPLATES[type][tier] };
                 }
                 if (pat.ativo.includes(dayIdx)) return d('ativo', wi);
                 return d('descanso', wi);
