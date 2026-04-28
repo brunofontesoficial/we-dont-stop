@@ -3533,6 +3533,70 @@
         competidor:    { core:88,  forca:88,  endurance:88,  hiking:88,  mobilidade:85 },
     };
 
+    function TestTimer({ onResult }) {
+        const [state,   setState]   = React.useState('idle'); // 'idle' | 'running' | 'done'
+        const [elapsed, setElapsed] = React.useState(0);
+        const startRef    = React.useRef(null);
+        const intervalRef = React.useRef(null);
+
+        function start() {
+            startRef.current = Date.now() - elapsed * 1000;
+            intervalRef.current = setInterval(() => {
+                setElapsed(Math.floor((Date.now() - startRef.current) / 1000));
+            }, 100);
+            setState('running');
+        }
+
+        function stop() {
+            clearInterval(intervalRef.current);
+            const secs = Math.floor((Date.now() - startRef.current) / 1000);
+            setElapsed(secs);
+            setState('done');
+            onResult(secs);
+        }
+
+        function reset() {
+            clearInterval(intervalRef.current);
+            setElapsed(0);
+            startRef.current = null;
+            setState('idle');
+            onResult(0);
+        }
+
+        React.useEffect(() => () => clearInterval(intervalRef.current), []);
+
+        const mm = (s) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+
+        return (
+            <div style={{background:'var(--card-navy)',borderRadius:20,padding:'24px 20px',marginBottom:20,textAlign:'center'}}>
+                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(245,240,232,0.35)',marginBottom:16}}>CRONÔMETRO</div>
+                <div style={{fontFamily:'var(--font-display)',fontSize:64,fontWeight:600,color:'#f5f0e8',lineHeight:1,marginBottom:24,fontVariantNumeric:'tabular-nums'}}>
+                    {mm(elapsed)}
+                </div>
+                <div style={{display:'flex',gap:10,justifyContent:'center'}}>
+                    {state === 'idle' && (
+                        <button onClick={start} style={{flex:1,maxWidth:200,padding:'14px 0',borderRadius:14,border:'none',background:'#3db87a',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer'}}>
+                            Iniciar
+                        </button>
+                    )}
+                    {state === 'running' && (
+                        <button onClick={stop} style={{flex:1,maxWidth:200,padding:'14px 0',borderRadius:14,border:'none',background:'#c84b38',color:'#fff',fontSize:15,fontWeight:700,cursor:'pointer'}}>
+                            Parar
+                        </button>
+                    )}
+                    {state === 'done' && (<>
+                        <button onClick={reset} style={{flex:1,padding:'12px 0',borderRadius:14,border:'none',background:'rgba(245,240,232,0.08)',color:'rgba(245,240,232,0.55)',fontSize:13,fontWeight:600,cursor:'pointer'}}>
+                            Refazer
+                        </button>
+                        <button onClick={() => setState('idle')} style={{flex:1,padding:'12px 0',borderRadius:14,border:'none',background:'#3db87a',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                            Confirmar ✓
+                        </button>
+                    </>)}
+                </div>
+            </div>
+        );
+    }
+
     function TelaOnboarding({ onComplete }) {
         const [slideIdx, setSlideIdx] = useState(0);
         const [goAval, setGoAval]     = useState(false);
@@ -4020,6 +4084,7 @@
                     'Incline o tronco levemente para frente — posição de hiking',
                     'Segure o máximo possível sem apoiar as mãos',
                 ]}/>
+                <TestTimer onResult={setHikingSecs}/>
                 <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU TEMPO</div>
                 <div className="aval-num-boxes" style={{marginBottom:20}}>
                     <div className="aval-num-box" style={{flex:1}}>
@@ -4103,6 +4168,7 @@
                     'Glúteos contraídos, core ativado — não eleve o quadril',
                     'Respire normalmente e segure o máximo possível',
                 ]}/>
+                <TestTimer onResult={setPlankSecs}/>
                 <div style={{fontSize:9, fontWeight:700, letterSpacing:1.6, textTransform:'uppercase', color:'rgba(24,25,31,0.4)', marginBottom:10}}>SEU TEMPO</div>
                 <div className="aval-num-boxes" style={{marginBottom:20}}>
                     <div className="aval-num-box" style={{flex:1}}>
