@@ -1191,7 +1191,7 @@
         const aval = getAvaliacao();
         const sessionTier = (() => {
             if (!aval?.scores || isRest) return null;
-            const scoreMap = { endurance:'endurance', hiking:'hiking', forca:'forca', core:'core', ativo:'mobilidade' };
+            const scoreMap = { endurance:'endurance', hiking:'hiking', trapezio:'forca', forca:'forca', core:'core', ativo:'mobilidade' };
             const key = scoreMap[todayDay.type];
             const score = key ? (aval.scores[key] ?? 50) : 50;
             return score < 35 ? 'L' : score < 65 ? 'M' : 'H';
@@ -4846,7 +4846,7 @@
 
     function getSessionSections(type, aval, cardioMode) {
         const scores = aval ? aval.scores : null;
-        const scoreMap = { endurance:'endurance', hiking:'hiking', forca:'forca', core:'core', ativo:'mobilidade' };
+        const scoreMap = { endurance:'endurance', hiking:'hiking', trapezio:'forca', forca:'forca', core:'core', ativo:'mobilidade' };
         const key = scoreMap[type];
         const score = scores && key ? (scores[key] ?? 50) : 50;
         const tier = score < 35 ? 'L' : score < 65 ? 'M' : 'H';
@@ -5267,7 +5267,6 @@
             const subs = {
                 'Farmer carry':         {name:'Agachamento sumô',      detail:'3 × 30s',      rest:'60s'},
                 'Barra / inverted row': {name:'Inverted row (mesa)',   detail:null,            rest:null},
-                'Barra / pull-up':      {name:'Inverted row (mesa)',   detail:null,            rest:null},
                 'Step-up lastrado':     {name:'Step-up',               detail:null,            rest:null},
                 'Ab wheel rollout':     {name:'Mountain climbers',     detail:'3 × 20 rep',    rest:'60s'},
             };
