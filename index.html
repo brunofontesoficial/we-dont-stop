@@ -3706,24 +3706,25 @@
     }
 
     function TelaAvaliacao({ onClose, onComplete }) {
-        const [step, setStep] = useState(1);
         const isOnboarding = !!onComplete;
+        const existingAval = React.useMemo(() => !isOnboarding ? (getAvaliacao() || {}) : {}, []);
+        const [step, setStep] = useState(() => isOnboarding ? 1 : 3);
 
         // Perfil (nome — coletado no onboarding, pré-preenchido na reavaliação)
         const profile0 = React.useMemo(() => getProfile(), []);
         const [nome, setNome]           = useState(profile0.firstName || '');
         const [sobrenome, setSobrenome] = useState(profile0.lastName  || '');
 
-        // Step 1: Quem é você
-        const [esporte, setEsporte]     = useState(null);
-        const [tipoBarco, setTipoBarco] = useState(null);
-        const [classe, setClasse]       = useState(null);
+        // Step 1: Quem é você (pré-preenchido na reavaliação)
+        const [esporte, setEsporte]     = useState(() => existingAval.esporte || null);
+        const [tipoBarco, setTipoBarco] = useState(() => existingAval.tipoBarco || null);
+        const [classe, setClasse]       = useState(() => existingAval.classe || null);
         const [classeOutro, setClasseOutro] = useState('');
-        const [idade, setIdade]         = useState(30);
+        const [idade, setIdade]         = useState(() => existingAval.idade || 30);
         const [velejando, setVelejando] = useState(5);
 
-        // Cardio preference (step 2)
-        const [cardio, setCardio]       = useState(null);
+        // Cardio preference (pré-preenchido da preferência salva)
+        const [cardio, setCardio]       = useState(() => !isOnboarding ? (getCardioMode() || null) : null);
 
         const includeHiking = esporte === 'velejador' && tipoBarco === 'hiking';
         const TOTAL = includeHiking ? 9 : 8;
@@ -3738,10 +3739,10 @@
             return seq[s-4] || 'resultado';
         }
 
-        // Step 2: Contexto
+        // Step 2: Contexto (pré-preenchido na reavaliação)
         const [objetivo, setObjetivo] = useState(null);
-        const [diasSemana, setDiasSemana] = useState(4);
-        const [equipamentos, setEquipamentos] = useState([]);
+        const [diasSemana, setDiasSemana] = useState(() => existingAval.diasSemana || 4);
+        const [equipamentos, setEquipamentos] = useState(() => existingAval.equipamentos || []);
 
         // Step 3: Hiking bench
         const [hikingSecs, setHikingSecs] = useState(0);
@@ -3951,11 +3952,13 @@
 
         function renderDecisao() {
             const equip = equipamentos[0] || '';
+            const faixaIdade = idade < 13 ? 'Criança' : idade < 18 ? 'Junior' : idade >= 65 ? 'Sênior 65+' : idade >= 50 ? 'Master 50+' : null;
             const resumo = [
                 esporte === 'velejador' ? `Velejador${tipoBarco ? ' · ' + (tipoBarco === 'hiking' ? 'Com hiking' : 'Sem hiking') : ''}` : (esporte || 'Atleta'),
                 `${diasSemana}x / semana`,
                 equip,
                 cardio ? { corrida:'Corrida', bike:'Bike', remo:'Remo' }[cardio] : null,
+                `${idade} anos${faixaIdade ? ' · ' + faixaIdade : ''}`,
             ].filter(Boolean);
             return (<>
                 <div className="aval-step-tag">QUASE LÁ</div>
