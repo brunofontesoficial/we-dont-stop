@@ -4595,9 +4595,10 @@
         const esporte    = aval?.esporte || 'outro';
         const hasHiking  = esporte === 'velejador' && aval?.tipoBarco === 'hiking';
         const idade      = aval?.idade || 25;
-        const isChild    = idade < 13;
-        const isJunior   = idade >= 13 && idade < 18;
-        const isMaster   = idade >= 50;
+        const isChild    = idade < 13;                        // <13: criança
+        const isJunior   = idade >= 13 && idade < 18;        // 13–17: junior
+        const isMaster   = idade >= 50 && idade < 65;        // 50–64: master
+        const isSenior   = idade >= 65;                      // 65+: sênior
         const equip      = aval?.equipamentos || [];
         const hasAcademia = equip.some(e => ['Academia','Academia completa','Box de CrossFit'].includes(e));
         const hasBike     = equip.includes('Bicicleta');
@@ -4613,6 +4614,7 @@
         function sd(n) {
             if (isChild)  return `${Math.round(n * 0.55)} min`;
             if (isJunior) return `${Math.round(n * 0.80)} min`;
+            if (isSenior) return `${Math.round(n * 0.70)} min`;
             if (isMaster) return `${Math.round(n * 0.90)} min`;
             return `${n} min`;
         }
@@ -4700,15 +4702,22 @@
         };
         let pat = { ...patterns[dias], train: [...patterns[dias].train], ativo: [...patterns[dias].ativo] };
 
-        // Criança <13: reduz 1 treino e converte em ativo (limite max 3 dias de treino)
+        // Criança <13: máx 3 dias de treino
         if (isChild && pat.train.length > 3) {
             const last = pat.train.pop();
             pat.ativo.push(last);
         }
-        // Master 50+: converte último treino em recuperação ativa
+        // Master 50–64: −1 treino → recuperação ativa
         if (isMaster && pat.train.length >= 3) {
             const last = pat.train.pop();
             pat.ativo.push(last);
+        }
+        // Sênior 65+: −2 treinos → recuperação ativa (máx 3 dias de treino)
+        if (isSenior) {
+            while (pat.train.length > 3) {
+                const last = pat.train.pop();
+                pat.ativo.push(last);
+            }
         }
 
         function buildWeek(wi) {
