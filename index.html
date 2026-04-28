@@ -901,6 +901,43 @@
             return updated;
         } catch { return getStreak(); }
     }
+    // ── Biometric log helpers ────────────────────────────────────────────────
+    function getBiometricLog() {
+        try { return JSON.parse(localStorage.getItem('biometric_log') || '[]'); } catch { return []; }
+    }
+    function saveBiometricEntry(entry) {
+        const log = getBiometricLog().filter(e => e.date !== entry.date);
+        log.push(entry);
+        log.sort((a,b) => a.date.localeCompare(b.date));
+        localStorage.setItem('biometric_log', JSON.stringify(log.slice(-60)));
+    }
+    function getLatestBiometric() {
+        const log = getBiometricLog();
+        return log.length ? log[log.length - 1] : null;
+    }
+    function getBiometricAlerts() {
+        const log = getBiometricLog();
+        if (log.length < 3) return [];
+        const last7 = log.slice(-7);
+        const alerts = [];
+        // HRV trend: if last entry < average of previous entries by >10%
+        const hrvEntries = last7.filter(e => e.hrv > 0);
+        if (hrvEntries.length >= 3) {
+            const avg = hrvEntries.slice(0,-1).reduce((a,e) => a + e.hrv, 0) / (hrvEntries.length - 1);
+            if (hrvEntries[hrvEntries.length-1].hrv < avg * 0.90)
+                alerts.push({ type:'hrv', msg:'HRV abaixo da sua média — priorize recuperação hoje.' });
+        }
+        // Disposição <= 2 por 2+ dias
+        const lowDisp = last7.slice(-3).filter(e => e.disposicao > 0 && e.disposicao <= 2);
+        if (lowDisp.length >= 2)
+            alerts.push({ type:'disp', msg:'Disposição baixa por vários dias — semana pesada, reduza o volume.' });
+        // Sono < 7h por 3+ dias consecutivos
+        const last3 = last7.slice(-3);
+        if (last3.length === 3 && last3.every(e => e.sono > 0 && e.sono < 7))
+            alerts.push({ type:'sono', msg:`Déficit de sono acumulado (${last3.map(e=>e.sono+'h').join(', ')}) — afeta performance e recuperação.` });
+        return alerts;
+    }
+
     function getNotifEnabled() { return localStorage.getItem('notif_streak') === '1'; }
     function saveNotifEnabled(v) { localStorage.setItem('notif_streak', v ? '1' : '0'); }
     async function requestNotifPermission() {
@@ -1158,8 +1195,26 @@
             return score < 35 ? 'L' : score < 65 ? 'M' : 'H';
         })();
 
-        // Proxy readiness from aval scores when no wearable connected
+        // Biometric check-in (today)
+        const todayStr   = new Date().toLocaleDateString('sv');
+        const bioToday   = React.useMemo(() => getLatestBiometric(), []);
+        const hasBioToday = bioToday && bioToday.date === todayStr;
+        const bioAlerts  = React.useMemo(() => getBiometricAlerts(), []);
+
+        // Readiness: biometric-based (priority) or aval proxy
         const readiness = (() => {
+            if (hasBioToday) {
+                const b = bioToday;
+                let score = 0, parts = 0;
+                if (b.hrv > 0) {
+                    const log = getBiometricLog().filter(e => e.hrv > 0);
+                    const avg = log.length > 1 ? log.slice(0,-1).reduce((a,e) => a + e.hrv, 0) / (log.length - 1) : b.hrv;
+                    score += Math.min(Math.round((b.hrv / avg) * 65), 90); parts++;
+                }
+                if (b.disposicao > 0) { score += Math.round((b.disposicao / 5) * 85); parts++; }
+                if (b.sono > 0) { score += Math.min(Math.round((b.sono / 8) * 85), 90); parts++; }
+                if (parts > 0) return Math.min(Math.round(score / parts), 99);
+            }
             if (!aval?.scores) return null;
             const s = aval.scores;
             const vals = [s.core, s.forca, s.endurance, s.mobilidade].filter(v => typeof v === 'number');
@@ -1168,8 +1223,8 @@
             return Math.round(40 + avg * 0.55);
         })();
         const readinessPhrase = !readiness ? 'Bom dia.' : readiness >= 80 ? 'Dia de atacar.' : readiness >= 65 ? 'Mar calmo.' : readiness >= 50 ? 'Treino moderado.' : 'Escuta o corpo.';
-        const readinessSub    = !readiness ? 'Conecte Whoop · Garmin · Apple Health.' : readiness >= 80 ? 'Siga o plano sem alterar. Dia de performance.' : readiness >= 65 ? 'Siga o plano do dia sem mexer.' : readiness >= 50 ? 'Reduza volume se sentir cansaço.' : 'Priorize recuperação e mobilidade.';
-        const readinessLabel  = readiness ? 'READINESS · ESTIMADO' : 'READINESS · WHOOP';
+        const readinessSub    = !readiness ? 'Faça o check-in diário para ver seu readiness.' : readiness >= 80 ? 'Siga o plano sem alterar. Dia de performance.' : readiness >= 65 ? 'Siga o plano do dia sem mexer.' : readiness >= 50 ? 'Reduza volume se sentir cansaço.' : 'Priorize recuperação e mobilidade.';
+        const readinessLabel  = hasBioToday ? 'READINESS · CHECK-IN' : readiness ? 'READINESS · ESTIMADO' : 'READINESS · DIÁRIO';
 
         const avalLevelNames = ['Iniciante','Intermediário','Avançado','Elite','World Class'];
         const avalHasHiking = aval && aval.esporte === 'velejador' && aval.tipoBarco === 'hiking';
@@ -1202,7 +1257,7 @@
                 </div>
 
                 <div className="cards-stack">
-                    <div className="card card-readiness">
+                    <div className="card card-readiness" style={{cursor:'pointer'}} onClick={() => setModal('biometria')}>
                         <ReadinessCircle score={readiness || 0} size={86}/>
                         <div className="readiness-body">
                             <div className="card-label">{readinessLabel}</div>
@@ -1211,6 +1266,34 @@
                         </div>
                         <div className="chevron">›</div>
                     </div>
+
+                    {/* Check-in nudge — só aparece se ainda não fez hoje */}
+                    {!hasBioToday && (
+                        <div className="card" style={{background:'#18191f',padding:'14px 18px',display:'flex',alignItems:'center',gap:14,cursor:'pointer'}} onClick={() => setModal('biometria')}>
+                            <div style={{width:36,height:36,borderRadius:10,background:'rgba(245,240,232,0.08)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:18}}>📋</div>
+                            <div style={{flex:1}}>
+                                <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(245,240,232,0.4)',marginBottom:2}}>DIÁRIO DE SAÚDE</div>
+                                <div style={{fontSize:14,fontWeight:600,color:'#f5f0e8'}}>Check-in de hoje</div>
+                                <div style={{fontSize:11,color:'rgba(245,240,232,0.45)',marginTop:1}}>HRV · Disposição · Sono — 30s</div>
+                            </div>
+                            <div style={{color:'rgba(245,240,232,0.3)',fontSize:18}}>›</div>
+                        </div>
+                    )}
+
+                    {/* Alertas biométricos */}
+                    {bioAlerts.map((a,i) => {
+                        const colors = { hrv:'#4a8fd9', disp:'#e87a45', sono:'#9b7dd4' };
+                        const c = colors[a.type] || '#c84b38';
+                        return (
+                            <div key={i} style={{margin:'0 0 0 0',padding:'11px 16px',background:'#fff',borderRadius:14,border:`1.5px solid ${c}30`,display:'flex',gap:10,alignItems:'flex-start',cursor:'pointer'}} onClick={() => setModal('biometria')}>
+                                <div style={{width:6,height:6,borderRadius:'50%',background:c,flexShrink:0,marginTop:4}}/>
+                                <div>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:'1px',textTransform:'uppercase',color:c,marginBottom:2}}>ALERTA · SAÚDE</div>
+                                    <div style={{fontSize:12,color:'rgba(24,25,31,0.7)',lineHeight:1.4}}>{a.msg}</div>
+                                </div>
+                            </div>
+                        );
+                    })}
 
                     <WindCard/>
 
@@ -2863,11 +2946,11 @@
             );
         }
 
-        const INTEGR_DOTS = [
-            {l:'W', bg:'#25a244'},
-            {l:'G', bg:'#3d6bc8'},
-            {l:'A', bg:'#e53935'},
-        ];
+        const bioLog   = React.useMemo(() => getBiometricLog(), []);
+        const bioToday = new Date().toLocaleDateString('sv');
+        const bioLatest = bioLog.length ? bioLog[bioLog.length-1] : null;
+        const bioCount  = bioLog.length;
+        const bioHasTodayP = bioLatest && bioLatest.date === bioToday;
         return (
             <div className="perf-wrap">
                 <div className="perf-header">
@@ -2895,16 +2978,12 @@
                         <div className="chevron" style={{color:'rgba(24,25,31,0.3)'}}>›</div>
                     </div>
 
-                    {/* INTEGRAÇÕES */}
-                    <div className="perf-integr" onClick={() => setModal('conexoes')}>
-                        <div className="perf-integr-dots">
-                            {INTEGR_DOTS.map((d,i) => (
-                                <div key={i} className="perf-integr-dot" style={{background:d.bg, left:i*18}}>{d.l}</div>
-                            ))}
-                        </div>
+                    {/* DIÁRIO DE SAÚDE */}
+                    <div className="perf-integr" onClick={() => setModal('biometria')}>
+                        <div style={{width:36,height:36,borderRadius:10,background:'rgba(245,240,232,0.08)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:20}}>📋</div>
                         <div className="perf-integr-body">
-                            <div className="perf-integr-lbl">INTEGRAÇÕES</div>
-                            <div className="perf-integr-title">Whoop + Garmin + 2</div>
+                            <div className="perf-integr-lbl">DIÁRIO DE SAÚDE</div>
+                            <div className="perf-integr-title">{bioHasTodayP ? `✓ Check-in feito · ${bioCount} registros` : bioCount > 0 ? `${bioCount} registros · sem check-in hoje` : 'HRV · Disposição · Sono'}</div>
                         </div>
                         <div className="chevron" style={{color:'rgba(245,240,232,0.3)'}}>›</div>
                     </div>
@@ -2992,26 +3071,24 @@
                 {/* ── Modal adicionar/editar evento ── */}
                 {eventModal !== null && (
                     <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(0,0,0,0.55)',display:'flex',alignItems:'flex-end'}}>
-                        <div style={{background:'#fff',borderRadius:'20px 20px 0 0',width:'100%',maxHeight:'80dvh',display:'flex',flexDirection:'column'}}>
-                            <div style={{padding:'28px 20px 0',overflowY:'auto',flex:1}}>
-                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
-                                    <div style={{fontSize:13,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:'var(--text-dark)'}}>{eventModal==='add'?'Novo evento':'Editar evento'}</div>
-                                    <button onClick={()=>setEventModal(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'var(--text-dark)',lineHeight:1}}>×</button>
-                                </div>
-                                {[
-                                    {label:'NOME DO EVENTO', key:'name',     type:'text', placeholder:'Ex: Brasileiro Laser'},
-                                    {label:'DATA',           key:'date',     type:'date', placeholder:''},
-                                    {label:'LOCAL',          key:'location', type:'text', placeholder:'Ex: Ilhabela'},
-                                ].map(f => (
-                                    <div key={f.key} style={{marginBottom:18}}>
-                                        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:6}}>{f.label}</div>
-                                        <input type={f.type} value={evDraft[f.key]||''} placeholder={f.placeholder}
-                                            onChange={e=>setEvDraft(d=>({...d,[f.key]:e.target.value}))}
-                                            style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,fontWeight:500,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}/>
-                                    </div>
-                                ))}
+                        <div style={{background:'#fff',borderRadius:'20px 20px 0 0',padding:'28px 20px 0',width:'100%',maxHeight:'80vh',overflowY:'auto',boxSizing:'border-box'}}>
+                            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
+                                <div style={{fontSize:13,fontWeight:700,letterSpacing:1,textTransform:'uppercase',color:'var(--text-dark)'}}>{eventModal==='add'?'Novo evento':'Editar evento'}</div>
+                                <button onClick={()=>setEventModal(null)} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'var(--text-dark)',lineHeight:1}}>×</button>
                             </div>
-                            <div style={{padding:'12px 20px',paddingBottom:'max(20px, env(safe-area-inset-bottom))',background:'#fff',borderTop:'1px solid rgba(24,25,31,0.06)'}}>
+                            {[
+                                {label:'NOME DO EVENTO', key:'name',     type:'text', placeholder:'Ex: Brasileiro Laser'},
+                                {label:'DATA',           key:'date',     type:'date', placeholder:''},
+                                {label:'LOCAL',          key:'location', type:'text', placeholder:'Ex: Ilhabela'},
+                            ].map(f => (
+                                <div key={f.key} style={{marginBottom:18}}>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:6}}>{f.label}</div>
+                                    <input type={f.type} value={evDraft[f.key]||''} placeholder={f.placeholder}
+                                        onChange={e=>setEvDraft(d=>({...d,[f.key]:e.target.value}))}
+                                        style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,fontWeight:500,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}/>
+                                </div>
+                            ))}
+                            <div style={{position:'sticky',bottom:0,background:'#fff',paddingTop:12,paddingBottom:'max(28px, env(safe-area-inset-bottom, 28px))'}}>
                                 <button onClick={saveEvent}
                                     style={{width:'100%',padding:14,background: evDraft.name&&evDraft.date?'var(--text-dark)':'rgba(24,25,31,0.15)',color: evDraft.name&&evDraft.date?'#fff':'rgba(24,25,31,0.3)',border:'none',borderRadius:50,fontSize:13,fontWeight:700,letterSpacing:0.5,cursor:'pointer'}}>
                                     SALVAR EVENTO
@@ -3196,6 +3273,142 @@
                         ) : null)}
                     </div>
                 )}
+            </div>
+        );
+    }
+
+    function TelaBiometria({ onClose }) {
+        const today = new Date().toLocaleDateString('sv');
+        const log   = React.useMemo(() => getBiometricLog(), []);
+        const todayEntry = log.find(e => e.date === today) || { date:today, hrv:0, disposicao:0, sono:0 };
+        const [draft, setDraft] = React.useState(todayEntry);
+        const [saved, setSaved]  = React.useState(!!log.find(e => e.date === today));
+        const set = (k, v) => setDraft(d => ({...d, [k]: v}));
+
+        function salvar() {
+            saveBiometricEntry({ ...draft, date: today });
+            setSaved(true);
+        }
+
+        const last7 = log.slice(-7);
+        const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+        const ScoreRow = ({ label, field, max, unit, color }) => {
+            const v = draft[field];
+            const pct = field === 'hrv' ? Math.min(v / 120, 1) : v / max;
+            return (
+                <div style={{marginBottom:20}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:8}}>
+                        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.45)'}}>{label}</div>
+                        <div style={{fontSize:16,fontWeight:700,color: v > 0 ? 'var(--text-dark)' : 'rgba(24,25,31,0.25)'}}>{v > 0 ? `${v}${unit}` : '—'}</div>
+                    </div>
+                    {field === 'hrv' ? (
+                        <input type="number" inputMode="numeric" placeholder="ex: 58" value={v||''} onChange={e => set(field, parseFloat(e.target.value)||0)}
+                            style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}/>
+                    ) : field === 'sono' ? (
+                        <input type="number" inputMode="decimal" placeholder="ex: 7.5" value={v||''} onChange={e => set(field, parseFloat(e.target.value)||0)}
+                            style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}/>
+                    ) : (
+                        <div style={{display:'flex',gap:8}}>
+                            {[1,2,3,4,5].map(n => (
+                                <button key={n} onClick={() => set(field, n)} style={{flex:1,padding:'10px 0',border:'none',borderRadius:10,fontSize:13,fontWeight:700,cursor:'pointer',
+                                    background: v === n ? color : 'rgba(24,25,31,0.06)',
+                                    color: v === n ? '#fff' : 'rgba(24,25,31,0.35)'}}>
+                                    {n}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const maxHrv = Math.max(...last7.map(e => e.hrv || 0), 1);
+
+        return (
+            <div style={{position:'fixed',inset:0,zIndex:200,background:'#f5f0e8',display:'flex',flexDirection:'column'}}>
+                <div style={{padding:'52px 20px 16px',display:'flex',alignItems:'center',gap:12}}>
+                    <button onClick={onClose} style={{background:'rgba(24,25,31,0.07)',border:'none',borderRadius:50,padding:'6px 14px',fontSize:12,fontWeight:700,cursor:'pointer',color:'var(--text-dark)',letterSpacing:0.5}}>← VOLTAR</button>
+                    <div style={{fontSize:11,fontWeight:700,letterSpacing:1.4,textTransform:'uppercase',color:'rgba(24,25,31,0.45)'}}>DIÁRIO DE SAÚDE</div>
+                </div>
+
+                <div style={{flex:1,overflowY:'auto',padding:'0 20px 100px'}}>
+                    {/* Formulário de hoje */}
+                    <div style={{background:'#fff',borderRadius:16,padding:'20px 18px',marginBottom:16}}>
+                        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:16}}>CHECK-IN · HOJE</div>
+                        <ScoreRow label="HRV (ms) — do seu relógio ou app" field="hrv"        max={120} unit=" ms" color="#4a8fd9"/>
+                        <ScoreRow label="Disposição (1–5)"                  field="disposicao" max={5}   unit="/5"  color="#e87a45"/>
+                        <ScoreRow label="Horas de sono"                     field="sono"       max={10}  unit="h"   color="#9b7dd4"/>
+                        <div style={{position:'sticky',bottom:0,background:'#fff',paddingTop:8,paddingBottom:'max(8px,env(safe-area-inset-bottom,8px))'}}>
+                            {saved
+                                ? <div style={{textAlign:'center',padding:14,fontSize:12,fontWeight:700,color:'#3db87a',letterSpacing:0.5}}>✓ CHECK-IN SALVO HOJE</div>
+                                : <button onClick={salvar} style={{width:'100%',padding:14,background:'var(--text-dark)',color:'#fff',border:'none',borderRadius:50,fontSize:13,fontWeight:700,letterSpacing:0.5,cursor:'pointer'}}>SALVAR CHECK-IN</button>
+                            }
+                        </div>
+                    </div>
+
+                    {/* Alertas */}
+                    {(() => {
+                        const alerts = getBiometricAlerts();
+                        if (!alerts.length) return null;
+                        return (
+                            <div style={{marginBottom:16}}>
+                                {alerts.map((a,i) => {
+                                    const colors = { hrv:'#4a8fd9', disp:'#e87a45', sono:'#9b7dd4' };
+                                    const c = colors[a.type] || '#c84b38';
+                                    return (
+                                        <div key={i} style={{background:'#fff',borderRadius:14,padding:'12px 16px',marginBottom:8,borderLeft:`3px solid ${c}`}}>
+                                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',color:c,marginBottom:4}}>ALERTA</div>
+                                            <div style={{fontSize:13,color:'var(--text-dark)',lineHeight:1.4}}>{a.msg}</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+
+                    {/* Tendência 7 dias */}
+                    {last7.length > 0 && (
+                        <div style={{background:'#fff',borderRadius:16,padding:'20px 18px'}}>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:16}}>ÚLTIMOS 7 DIAS</div>
+                            {/* HRV bars */}
+                            {last7.some(e => e.hrv > 0) && (
+                                <div style={{marginBottom:20}}>
+                                    <div style={{fontSize:10,fontWeight:600,color:'rgba(24,25,31,0.45)',marginBottom:8,letterSpacing:0.5}}>HRV (ms)</div>
+                                    <div style={{display:'flex',gap:6,alignItems:'flex-end',height:52}}>
+                                        {last7.map((e,i) => {
+                                            const d = new Date(e.date+'T00:00:00');
+                                            const h = e.hrv > 0 ? Math.max((e.hrv / maxHrv) * 44, 4) : 4;
+                                            return (
+                                                <div key={i} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+                                                    <div style={{fontSize:8,fontWeight:700,color:'#4a8fd9'}}>{e.hrv > 0 ? e.hrv : ''}</div>
+                                                    <div style={{width:'100%',height:h,borderRadius:4,background: e.hrv > 0 ? '#4a8fd9' : 'rgba(24,25,31,0.07)'}}/>
+                                                    <div style={{fontSize:8,color:'rgba(24,25,31,0.35)'}}>{d.getDate()}/{d.getMonth()+1}</div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            {/* Disposição + Sono table */}
+                            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                                {last7.slice().reverse().map((e,i) => {
+                                    const d = new Date(e.date+'T00:00:00');
+                                    return (
+                                        <div key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid rgba(24,25,31,0.05)'}}>
+                                            <div style={{width:40,fontSize:11,color:'rgba(24,25,31,0.4)',fontWeight:600}}>{d.getDate()}/{d.getMonth()+1}</div>
+                                            <div style={{flex:1,display:'flex',gap:8}}>
+                                                {e.hrv > 0 && <span style={{fontSize:10,fontWeight:700,color:'#4a8fd9',background:'rgba(74,143,217,0.1)',borderRadius:6,padding:'2px 6px'}}>HRV {e.hrv}</span>}
+                                                {e.disposicao > 0 && <span style={{fontSize:10,fontWeight:700,color:'#e87a45',background:'rgba(232,122,69,0.1)',borderRadius:6,padding:'2px 6px'}}>{'★'.repeat(e.disposicao)}{'☆'.repeat(5-e.disposicao)}</span>}
+                                                {e.sono > 0 && <span style={{fontSize:10,fontWeight:700,color:'#9b7dd4',background:'rgba(155,125,212,0.1)',borderRadius:6,padding:'2px 6px'}}>{e.sono}h sono</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }
@@ -5024,6 +5237,7 @@
         if (modal === 'avaliacao')   return <TelaAvaliacao    onClose={closeModal}/>;
         if (modal === 'coach')       return <TelaCoach        onClose={closeModal}/>;
         if (modal === 'historico')   return <TelaHistorico    onClose={closeModal}/>;
+        if (modal === 'biometria')   return <TelaBiometria    onClose={closeModal}/>;
 
         function toggleSailing(v) {
             setSailingMode(v);
