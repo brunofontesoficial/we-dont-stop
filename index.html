@@ -2874,7 +2874,7 @@
         );
     }
 
-    function TelaPerfil({ setModal, sailingMode, setSailingMode }) {
+    function TelaPerfil({ setModal, sailingMode, setSailingMode, onResetOnboarding }) {
         const [profile, setProfile] = React.useState(getProfile);
         const [editing, setEditing] = React.useState(false);
         const [notifEnabled, setNotifEnabled] = React.useState(getNotifEnabled);
@@ -3005,6 +3005,7 @@
                         {title:'Avaliação inicial', sub: (() => { const a=getAvaliacao(); if(!a) return 'Ainda não feita'; const d=new Date(a.date+'T00:00:00'); const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return `Feita em ${d.getDate()} ${meses[d.getMonth()]}`; })(), action: () => setModal('avaliacao')},
                         {title:'Modo Regata',       sub: sailingMode ? `${upcoming[0]?.name || '—'} · ${upcoming[0] ? getRaceDaysLeft(upcoming[0].date)+' dias' : ''}` : 'Desativado', action: () => setModal('modoRegata')},
                         {title:'Chat com coach',    sub:'3 não lidas', action: () => {}},
+                        {title:'Refazer configuração', sub:'Mudar esporte, dias, equipamentos ou nível', action: () => { if(confirm('Refazer o setup? Seu histórico e dados não serão perdidos.')) onResetOnboarding?.(); }},
                     ].map((l,i) => (
                         <div key={i} className="perf-link" onClick={l.action}>
                             <div className="perf-link-body">
@@ -3510,42 +3511,275 @@
         );
     }
 
-    const OB_SLIDES = [
-        { bg:'#090f1e', tc:'#f5f0e8', mc:'rgba(245,240,232,0.42)', n:'1/3',
-          title:'We don\'t stop', desc:'Todo dia. Mesmo que seja 10 minutos. A corda não é sobre intensidade — é sobre não soltar.',
-          btnBg:'#c84b38', btnC:'#fff', btnBd:'none', btnTxt:'CONTINUAR', da:'#c84b38', di:'rgba(245,240,232,0.18)' },
-        { bg:'#f0c52e', tc:'#18191f', mc:'rgba(24,25,31,0.5)', n:'2/3',
-          title:'No mimimi', desc:'Vento ruim, mar formado, dia duro. Respira. E vai. O campeão não é quem tem o melhor dia — é quem não desiste no pior.',
-          btnBg:'#18191f', btnC:'#f5f0e8', btnBd:'none', btnTxt:'CONTINUAR', da:'#18191f', di:'rgba(24,25,31,0.18)' },
-        { bg:'#c84b38', tc:'#f5f0e8', mc:'rgba(245,240,232,0.6)', n:'3/3',
-          title:'Seu nível.\nSeu plano.', desc:'Fazemos os testes. O app lê o resultado, sua classe, sua idade — e monta 4 semanas sob medida.',
-          btnBg:'#ffffff', btnC:'#18191f', btnBd:'none', btnTxt:'ENTRAR NO APP', da:'#f5f0e8', di:'rgba(245,240,232,0.28)' },
-    ];
+    const OB_LEVEL_SCORES = {
+        iniciante:     { core:20,  forca:20,  endurance:20,  hiking:20,  mobilidade:40 },
+        intermediario: { core:52,  forca:52,  endurance:52,  hiking:52,  mobilidade:62 },
+        avancado:      { core:76,  forca:76,  endurance:76,  hiking:76,  mobilidade:76 },
+        competidor:    { core:88,  forca:88,  endurance:88,  hiking:88,  mobilidade:85 },
+    };
 
     function TelaOnboarding({ onComplete }) {
-        const [idx, setIdx] = useState(0);
-        const s = OB_SLIDES[idx];
-        const isLast = idx === OB_SLIDES.length - 1;
-        function next() {
-            if (isLast) { localStorage.setItem('regata_onboarded','1'); onComplete(); }
-            else setIdx(i => i + 1);
+        const profile0 = getProfile();
+        const [step, setStep]           = useState(0);
+        const [nome, setNome]           = useState(profile0.firstName || '');
+        const [sobrenome, setSobrenome] = useState(profile0.lastName  || '');
+        const [esporte, setEsporte]     = useState(null); // 'hiking'|'padrao'|'nautico'|'geral'
+        const [dias, setDias]           = useState(null);
+        const [equips, setEquips]       = useState([]);
+        const [nivel, setNivel]         = useState(null);
+        const [showAval, setShowAval]   = useState(false);
+        const TOTAL_STEPS = 5;
+
+        function toggleEquip(e) {
+            setEquips(prev => prev.includes(e) ? prev.filter(x => x !== e) : [...prev, e]);
         }
+
+        function finish(scores, tipoBarco) {
+            const prof = { firstName: nome.trim() || 'Atleta', lastName: sobrenome.trim() };
+            saveProfile(prof);
+            saveAvaliacao({
+                esporte: ['hiking','padrao'].includes(esporte) ? 'velejador' : esporte === 'nautico' ? 'nautico' : 'geral',
+                tipoBarco: esporte === 'hiking' ? 'hiking' : esporte === 'padrao' ? 'padrao' : null,
+                hikingSecs: 0, plankSecs: 0, emomRounds: 0, pushReps: 0, pullReps: 0, squatReps: 0,
+                endType: 'cooper', endDist: '2400', mobScores: {},
+                diasSemana: dias,
+                equipamentos: equips,
+                scores,
+                setupComplete: true,
+            });
+            localStorage.setItem('regata_onboarded', '1');
+            onComplete();
+        }
+
+        function handleAvalComplete() {
+            const existing = getAvaliacao();
+            if (existing) saveAvaliacao({ ...existing, setupComplete: true });
+            localStorage.setItem('regata_onboarded', '1');
+            onComplete();
+        }
+
+        // If user chose to do full tests
+        if (showAval) return <TelaAvaliacao onClose={handleAvalComplete}/>;
+
+        const canNext = [
+            nome.trim().length > 0,                      // step 0
+            esporte !== null,                             // step 1
+            dias !== null && equips.length > 0,           // step 2
+            nivel !== null,                               // step 3
+            true,                                         // step 4 (result)
+        ][step];
+
+        const ESPORTE_OPTS = [
+            { id:'hiking',  icon:'🚤', title:'Vela · Hiking',   sub:'Laser · ILCA · 49er · 29er' },
+            { id:'padrao',  icon:'⛵', title:'Vela · Padrão',   sub:'J/24 · Snipe · Dragon · Star' },
+            { id:'nautico', icon:'🌊', title:'Esporte Náutico', sub:'Windsurf · Kite · Remo' },
+            { id:'geral',   icon:'💪', title:'Atleta Geral',    sub:'Funcional · Corrida · CrossFit' },
+        ];
+        const DIAS_OPTS = [2,3,4,5,6];
+        const EQUIP_OPTS = [
+            { id:'Academia',        icon:'🏋️', label:'Academia completa' },
+            { id:'Ergômetro remo',  icon:'🚣', label:'Ergômetro de remo' },
+            { id:'Bike ergométrica',icon:'🚴', label:'Bike ergométrica' },
+            { id:'Halteres',        icon:'🏠', label:'Pesos / halteres' },
+            { id:'Sem equipamento', icon:'🤸', label:'Sem equipamento' },
+        ];
+        const NIVEL_OPTS = [
+            { id:'iniciante',     label:'Iniciante',     sub:'Começo agora ou voltei após pausa longa' },
+            { id:'intermediario', label:'Intermediário', sub:'Treino regular há pelo menos 6 meses' },
+            { id:'avancado',      label:'Avançado',      sub:'Treino consistente há 2+ anos' },
+            { id:'competidor',    label:'Competidor',    sub:'Atleta de alta performance / competição' },
+        ];
+
+        const stepTitles = ['Quem é você?','Seu esporte','Como você treina?','Seu nível atual','Seu plano está pronto'];
+
+        // shared styles
+        const tile = (active) => ({
+            background: active ? '#18191f' : '#fff',
+            color: active ? '#f5f0e8' : 'var(--text-dark)',
+            border: active ? 'none' : '1.5px solid rgba(24,25,31,0.1)',
+            borderRadius: 16, padding: '14px 16px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8,
+        });
+
         return (
-            <div className="ob-wrap" style={{background: s.bg}}>
-                <div className="ob-body">
-                    <div className="ob-mantra-lbl" style={{color: s.mc}}>MANTRA · {s.n}</div>
-                    <div className="ob-title" style={{color: s.tc}}>{s.title}</div>
-                    <div className="ob-desc" style={{color: s.mc}}>{s.desc}</div>
+            <div style={{position:'fixed',inset:0,zIndex:400,background:'#f5f0e8',display:'flex',flexDirection:'column',overflowY:'auto'}}>
+                {/* Progress bar */}
+                <div style={{height:3,background:'rgba(24,25,31,0.08)',flexShrink:0}}>
+                    <div style={{height:'100%',width:`${((step+1)/TOTAL_STEPS)*100}%`,background:'#c84b38',transition:'width 0.3s'}}/>
                 </div>
-                <div className="ob-footer">
-                    <div className="ob-dots">
-                        {OB_SLIDES.map((_,i) => (
-                            <div key={i} className="ob-dot" style={{background: i <= idx ? s.da : s.di}}/>
-                        ))}
+
+                {/* Header */}
+                <div style={{padding:'20px 20px 0',flexShrink:0,display:'flex',alignItems:'center',gap:12}}>
+                    {step > 0 && (
+                        <button onClick={() => setStep(s => s-1)} style={{background:'rgba(24,25,31,0.07)',border:'none',borderRadius:50,padding:'6px 12px',fontSize:18,cursor:'pointer',color:'var(--text-dark)',lineHeight:1}}>‹</button>
+                    )}
+                    <div>
+                        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)'}}>{step+1} DE {TOTAL_STEPS} · WE DON'T STOP</div>
+                        <div style={{fontSize:20,fontWeight:700,color:'var(--text-dark)',marginTop:2}}>{stepTitles[step]}</div>
                     </div>
-                    <button className="ob-cta" onClick={next}
-                        style={{background: s.btnBg, color: s.btnC, border: s.btnBd}}>
-                        {s.btnTxt}
+                </div>
+
+                {/* Content */}
+                <div style={{flex:1,padding:'24px 20px',overflowY:'auto'}}>
+
+                    {/* STEP 0: Nome */}
+                    {step === 0 && (
+                        <div>
+                            <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',marginBottom:24,lineHeight:1.5}}>
+                                Seu plano é feito para você. Começa pelo nome.
+                            </div>
+                            {[
+                                {label:'NOME', val:nome, set:setNome, ph:'Ex: Bruno'},
+                                {label:'SOBRENOME', val:sobrenome, set:setSobrenome, ph:'Ex: Fontes'},
+                            ].map(f => (
+                                <div key={f.label} style={{marginBottom:18}}>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:6}}>{f.label}</div>
+                                    <input value={f.val} placeholder={f.ph} onChange={e => f.set(e.target.value)}
+                                        style={{width:'100%',padding:'12px 16px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:12,fontSize:16,fontWeight:500,color:'var(--text-dark)',background:'#fff',boxSizing:'border-box',outline:'none'}}/>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* STEP 1: Esporte */}
+                    {step === 1 && (
+                        <div>
+                            <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',marginBottom:20,lineHeight:1.5}}>
+                                O plano muda dependendo do seu esporte. Seja honesto — isso importa.
+                            </div>
+                            {ESPORTE_OPTS.map(o => (
+                                <div key={o.id} style={tile(esporte===o.id)} onClick={() => setEsporte(o.id)}>
+                                    <div style={{fontSize:24,flexShrink:0}}>{o.icon}</div>
+                                    <div>
+                                        <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{o.title}</div>
+                                        <div style={{fontSize:11,opacity:0.55}}>{o.sub}</div>
+                                    </div>
+                                    {esporte===o.id && <div style={{marginLeft:'auto',width:20,height:20,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                    </div>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* STEP 2: Dias + Equipamentos */}
+                    {step === 2 && (
+                        <div>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:10}}>DIAS POR SEMANA</div>
+                            <div style={{display:'flex',gap:8,marginBottom:24}}>
+                                {DIAS_OPTS.map(d => (
+                                    <button key={d} onClick={() => setDias(d)} style={{
+                                        flex:1, padding:'14px 0', border:'none', borderRadius:14, fontSize:18, fontWeight:700,
+                                        cursor:'pointer', background: dias===d ? '#18191f' : '#fff',
+                                        color: dias===d ? '#f5f0e8' : 'rgba(24,25,31,0.4)',
+                                        boxShadow: dias===d ? 'none' : '0 1px 4px rgba(24,25,31,0.07)',
+                                    }}>{d}</button>
+                                ))}
+                            </div>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:10}}>ONDE / O QUE VOCÊ TEM</div>
+                            <div style={{fontSize:12,color:'rgba(24,25,31,0.45)',marginBottom:12}}>Selecione tudo que se aplica</div>
+                            {EQUIP_OPTS.map(e => (
+                                <div key={e.id} style={tile(equips.includes(e.id))} onClick={() => toggleEquip(e.id)}>
+                                    <div style={{fontSize:22,flexShrink:0}}>{e.icon}</div>
+                                    <div style={{fontSize:14,fontWeight:600}}>{e.label}</div>
+                                    {equips.includes(e.id) && <div style={{marginLeft:'auto',width:20,height:20,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                    </div>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* STEP 3: Nível / Testes */}
+                    {step === 3 && (
+                        <div>
+                            <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',marginBottom:8,lineHeight:1.5}}>
+                                Seja honesto. O plano será calibrado para o seu nível real.
+                            </div>
+                            <div style={{background:'rgba(232,122,69,0.08)',borderRadius:12,padding:'12px 16px',marginBottom:20,border:'1.5px solid rgba(232,122,69,0.2)'}}>
+                                <div style={{fontSize:11,fontWeight:700,color:'#e87a45',marginBottom:4}}>💡 OPÇÃO: FAZER OS TESTES</div>
+                                <div style={{fontSize:12,color:'rgba(24,25,31,0.65)',lineHeight:1.4,marginBottom:10}}>Testes de 15min (hiking bench, core, endurance, mobilidade) geram um plano muito mais preciso.</div>
+                                <button onClick={() => setShowAval(true)} style={{width:'100%',padding:'11px',background:'#e87a45',color:'#fff',border:'none',borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:0.5,cursor:'pointer'}}>
+                                    FAZER OS TESTES AGORA →
+                                </button>
+                            </div>
+                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:12}}>OU ESCOLHA SEU NÍVEL ESTIMADO</div>
+                            {NIVEL_OPTS.map(o => (
+                                <div key={o.id} style={tile(nivel===o.id)} onClick={() => setNivel(o.id)}>
+                                    <div style={{flex:1}}>
+                                        <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{o.label}</div>
+                                        <div style={{fontSize:11,opacity:0.55}}>{o.sub}</div>
+                                    </div>
+                                    {nivel===o.id && <div style={{width:20,height:20,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                    </div>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* STEP 4: Resultado */}
+                    {step === 4 && (
+                        <div style={{textAlign:'center',paddingTop:16}}>
+                            <div style={{fontSize:64,marginBottom:16}}>🎯</div>
+                            <div style={{fontSize:24,fontWeight:700,color:'var(--text-dark)',marginBottom:8,fontFamily:'var(--font-serif)'}}>
+                                Plano pronto, {nome || 'atleta'}.
+                            </div>
+                            <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',lineHeight:1.6,marginBottom:28}}>
+                                {dias} dias por semana · {esporte === 'hiking' ? 'Vela Hiking' : esporte === 'padrao' ? 'Vela Padrão' : esporte === 'nautico' ? 'Esporte Náutico' : 'Atleta Geral'} · Nível {NIVEL_OPTS.find(o=>o.id===nivel)?.label || 'definido'}
+                            </div>
+                            <div style={{background:'#fff',borderRadius:16,padding:'16px',marginBottom:20,textAlign:'left'}}>
+                                {[
+                                    { label:'Semanas', val:'4 semanas periodizadas' },
+                                    { label:'Foco',    val: esporte==='hiking' ? 'Hiking + Core + Endurance' : esporte==='padrao'?'Força + Core + Endurance':'Condicionamento geral' },
+                                    { label:'Cardio',  val: equips.includes('Ergômetro remo')?'Remo Z2 prioritário':equips.includes('Bike ergométrica')?'Bike + Corrida Z2':'Corrida Z2' },
+                                    { label:'Testes',  val: nivel ? 'Refine pelo menu Perfil quando quiser' : 'Baseado nos testes que você fez' },
+                                ].map(r => (
+                                    <div key={r.label} style={{display:'flex',gap:12,padding:'8px 0',borderBottom:'1px solid rgba(24,25,31,0.06)'}}>
+                                        <div style={{fontSize:11,fontWeight:700,color:'rgba(24,25,31,0.4)',width:64,flexShrink:0}}>{r.label}</div>
+                                        <div style={{fontSize:13,color:'var(--text-dark)'}}>{r.val}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer CTA */}
+                <div style={{padding:'12px 20px',paddingBottom:'max(24px,env(safe-area-inset-bottom,24px))',background:'#f5f0e8',borderTop:'1px solid rgba(24,25,31,0.07)',flexShrink:0}}>
+                    <button
+                        disabled={!canNext}
+                        onClick={() => {
+                            if (step < 3) { setStep(s => s + 1); return; }
+                            if (step === 3) {
+                                // Save partial (level-based) and go to result
+                                const scores = OB_LEVEL_SCORES[nivel] || OB_LEVEL_SCORES.intermediario;
+                                setStep(4);
+                                // Pre-save so result screen has data
+                                const prof = { firstName: nome.trim()||'Atleta', lastName: sobrenome.trim() };
+                                saveProfile(prof);
+                                saveAvaliacao({
+                                    esporte: ['hiking','padrao'].includes(esporte)?'velejador':esporte==='nautico'?'nautico':'geral',
+                                    tipoBarco: esporte==='hiking'?'hiking':esporte==='padrao'?'padrao':null,
+                                    hikingSecs:0,plankSecs:0,emomRounds:0,pushReps:0,pullReps:0,squatReps:0,
+                                    endType:'cooper',endDist:'2400',mobScores:{},
+                                    diasSemana:dias, equipamentos:equips, scores, setupComplete:true,
+                                });
+                                return;
+                            }
+                            if (step === 4) {
+                                localStorage.setItem('regata_onboarded','1');
+                                onComplete();
+                            }
+                        }}
+                        style={{
+                            width:'100%', padding:15,
+                            background: canNext ? '#c84b38' : 'rgba(24,25,31,0.1)',
+                            color: canNext ? '#fff' : 'rgba(24,25,31,0.3)',
+                            border:'none', borderRadius:50, fontSize:13, fontWeight:700,
+                            letterSpacing:0.5, cursor: canNext ? 'pointer' : 'default',
+                        }}>
+                        {step === 4 ? 'ACESSAR MEU PLANO →' : 'CONTINUAR'}
                     </button>
                 </div>
             </div>
@@ -4485,7 +4719,7 @@
                                         { name:'Z5 · Máximo',       color:'#c84b38', lo: Math.round(hrRest+0.90*HRR), hi: hrMax },
                                     ];
                                 })() : null;
-                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria, diasSemana, equipamentos, hrMax: useHR?hrMax:null, hrRest: useHR?hrRest:null, hrZones });
+                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria, diasSemana, equipamentos, hrMax: useHR?hrMax:null, hrRest: useHR?hrRest:null, hrZones, setupComplete: true });
                                 onClose();
                             }}>GERAR PLANO DE 4 SEMANAS</button>
                     )}
@@ -5217,7 +5451,13 @@
 
     /* ══════════════════════ APP ROOT ══════════════════════ */
     function App() {
-        const [onboarded,    setOnboarded]    = useState(() => localStorage.getItem('regata_onboarded') === '1');
+        // Migration: users who already have evaluation data bypass onboarding
+        const [onboarded, setOnboarded] = useState(() => {
+            if (localStorage.getItem('regata_onboarded') === '1') return true;
+            const existing = getAvaliacao();
+            if (existing) { localStorage.setItem('regata_onboarded','1'); return true; }
+            return false;
+        });
         const [sailingMode,  setSailingMode]  = useState(() => localStorage.getItem('regata_sailing') !== '0');
         const [tab,          setTab]          = useState('hoje');
         const [modal,        setModal]        = useState(null);
@@ -5251,7 +5491,7 @@
                 case 'testes':    return <TelaTestes setModal={setModal}/>;
                 case 'biblioteca':return <TelaBiblioteca/>;
                 case 'pulso':     return <TelaPulso/>;
-                case 'perfil':    return <TelaPerfil    setModal={setModal} sailingMode={sailingMode} setSailingMode={toggleSailing}/>;
+                case 'perfil':    return <TelaPerfil    setModal={setModal} sailingMode={sailingMode} setSailingMode={toggleSailing} onResetOnboarding={() => { localStorage.removeItem('regata_onboarded'); setOnboarded(false); }}/>;
                 default:          return <TelaHoje      key={refreshKey} setModal={setModal} sailingMode={sailingMode} openSession={openSession}/>;
             }
         };
