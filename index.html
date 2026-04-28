@@ -3548,8 +3548,10 @@
         }
 
         function stop() {
+            if (!startRef.current) return;
             clearInterval(intervalRef.current);
             const secs = Math.floor((Date.now() - startRef.current) / 1000);
+            startRef.current = null;
             setElapsed(secs);
             setState('done');
             onResult(secs);
@@ -3588,7 +3590,7 @@
                         <button onClick={reset} style={{flex:1,padding:'12px 0',borderRadius:14,border:'none',background:'rgba(245,240,232,0.08)',color:'rgba(245,240,232,0.55)',fontSize:13,fontWeight:600,cursor:'pointer'}}>
                             Refazer
                         </button>
-                        <button onClick={() => setState('idle')} style={{flex:1,padding:'12px 0',borderRadius:14,border:'none',background:'#3db87a',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer'}}>
+                        <button onClick={() => { setElapsed(0); startRef.current = null; setState('idle'); }} style={{flex:1,padding:'12px 0',borderRadius:14,border:'none',background:'#3db87a',color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer'}}>
                             Confirmar ✓
                         </button>
                     </>)}
