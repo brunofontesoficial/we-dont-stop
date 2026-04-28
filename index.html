@@ -3975,6 +3975,7 @@
                 `${diasSemana}x / semana`,
                 equip,
                 cardio ? { corrida:'Corrida', bike:'Bike', remo:'Remo' }[cardio] : null,
+                objetivo || null,
                 `${idade} anos${faixaIdade ? ' · ' + faixaIdade : ''}`,
             ].filter(Boolean);
             return (<>
