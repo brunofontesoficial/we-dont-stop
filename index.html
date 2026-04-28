@@ -940,6 +940,74 @@
         return alerts;
     }
 
+    function calcReadiness() {
+        const todayStr = new Date().toLocaleDateString('sv');
+        const bioLog   = getBiometricLog();
+        const bioToday = bioLog.slice().reverse().find(e => e.date === todayStr);
+        if (bioToday) {
+            const b = bioToday;
+            let score = 0, parts = 0;
+            if (b.hrv > 0) {
+                const log = bioLog.filter(e => e.hrv > 0);
+                const avg = log.length > 1 ? log.slice(0,-1).reduce((a,e) => a + e.hrv, 0) / (log.length - 1) : b.hrv;
+                score += Math.min(Math.round((b.hrv / avg) * 65), 90); parts++;
+            }
+            if (b.disposicao > 0) { score += Math.round((b.disposicao / 5) * 85); parts++; }
+            if (b.sono > 0)       { score += Math.min(Math.round((b.sono / 8) * 85), 90); parts++; }
+            if (parts > 0) return Math.min(Math.round(score / parts), 99);
+        }
+        const aval = getAvaliacao();
+        if (!aval?.scores) return null;
+        const s = aval.scores;
+        const vals = [s.core, s.forca, s.endurance, s.mobilidade].filter(v => typeof v === 'number');
+        if (!vals.length) return null;
+        return Math.round(40 + (vals.reduce((a, b) => a + b, 0) / vals.length) * 0.55);
+    }
+
+    function getMetricSeries(field, days) {
+        return getBiometricLog()
+            .filter(e => (e[field] || 0) > 0)
+            .slice(-days);
+    }
+
+    function getMetricBaseline(field, days) {
+        const series = getMetricSeries(field, days);
+        if (!series.length) return null;
+        return series.reduce((a, e) => a + (e[field] || 0), 0) / series.length;
+    }
+
+    function getDailyLoads() {
+        const map = {};
+        getHistory().forEach(h => {
+            if (h.rpe && h.totalMs) {
+                map[h.date] = (map[h.date] || 0) + h.rpe * (h.totalMs / 3600000);
+            }
+        });
+        return map;
+    }
+
+    function buildTSBData(numDays) {
+        const loads = getDailyLoads();
+        const today = new Date();
+        let ctl = 0, atl = 0;
+        const result = [];
+        for (let i = numDays - 1; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toLocaleDateString('sv');
+            const load = loads[dateStr] || 0;
+            ctl = ctl + (load - ctl) * (1 - Math.exp(-1 / 42));
+            atl = atl + (load - atl) * (1 - Math.exp(-1 / 7));
+            result.push({
+                date: dateStr,
+                ctl:  Math.round(ctl  * 10) / 10,
+                atl:  Math.round(atl  * 10) / 10,
+                tsb:  Math.round((ctl - atl) * 10) / 10,
+            });
+        }
+        return result;
+    }
+
     function getNotifEnabled() { return localStorage.getItem('notif_streak') === '1'; }
     function saveNotifEnabled(v) { localStorage.setItem('notif_streak', v ? '1' : '0'); }
     async function requestNotifPermission() {
