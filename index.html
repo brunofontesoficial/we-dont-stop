@@ -5096,6 +5096,24 @@
             {name:'Hiking bench sprint', detail:`${hikingSets} × 30s`, rest:'45s'},
         ] : [];
 
+        const weekIdx = Math.floor(Date.now() / (7 * 24 * 3600 * 1000)) % 4;
+        const TABATA_PAIRS = [
+            ['Snow angel',  'Plank elbows'],
+            ['Ab wheel',    'V-UP'],
+            ['Hollow rock', 'V-UP'],
+            ['Tuck-up',     'Hollow hold'],
+        ];
+        const [tabataA, tabataB] = TABATA_PAIRS[weekIdx];
+        const ESD = {
+            L: { label:'SHORT',     sets:4,  duration:'2–3 min',   rpe:'RPE 3–7'  },
+            M: { label:'THRESHOLD', sets:7,  duration:'2–6 min',   rpe:'RPE 3–7'  },
+            H: { label:'SPRINT',    sets:13, duration:'0:30–5 min', rpe:'RPE 2–10' },
+        }[tier];
+        const esdExercise = mode === 'bike' ? 'Bike' : 'Ergômetro (remo)';
+        const RECOVERY_BLOCK = { title:'RECUPERAÇÃO', color:'#3db87a', items:[
+            { name:'Alongamento Bruno Fontes', detail:'5 min', rest:'' }
+        ]};
+
         const S = {
             // ── ENDURANCE ──────────────────────────────────────────────────
             endurance: {
