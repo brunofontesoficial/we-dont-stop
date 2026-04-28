@@ -1176,7 +1176,7 @@
                          : sess ? 'active'
                          : 'idle';
         const totalExCount = !isRest
-            ? (SESSION_TEMPLATES[todayDay.type] || []).reduce((a, s) => a + s.items.length, 0)
+            ? getSessionSections(todayDay.type, aval).reduce((a, s) => a + s.items.length, 0)
             : 0;
         const doneCount = sess ? (sess.doneIds || []).length : 0;
         const elapsedMin = sess && sess.startedAt
