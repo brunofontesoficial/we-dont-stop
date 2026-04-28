@@ -5701,7 +5701,8 @@
             });
         }
         const raw = (S[type] && S[type][tier]) || SESSION_TEMPLATES[type] || [];
-        return raw.map(sec => ({ ...sec, items: equipFilter(sec.items) }));
+        const sections = raw.map(sec => ({ ...sec, items: equipFilter(sec.items) }));
+        return [...sections, RECOVERY_BLOCK];
     }
 
     function TelaSessaoDetalhe({ session, dayLabel, weekName, weekIdx, onBack, openSession }) {
