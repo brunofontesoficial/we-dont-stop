@@ -1912,7 +1912,7 @@
                     <div className="overline" style={{marginBottom:6}}>{new Date().toLocaleDateString('pt-BR',{weekday:'short',day:'numeric',month:'short'}).toUpperCase()}</div>
                     <div className="page-title">Pulso</div>
                     <div className="readiness-big-card">
-                        <ReadinessCircle score={readiness} size={90}/>
+                        <ReadinessCircle score={readiness || 0} size={90}/>
                         <div className="readiness-detail">
                             <div className="card-label">READINESS</div>
                             <div className="readiness-hl">{readinessPh}</div>
