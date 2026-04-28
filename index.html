@@ -3538,23 +3538,28 @@
         const [nome, setNome]           = useState(profile0.firstName || '');
         const [sobrenome, setSobrenome] = useState(profile0.lastName  || '');
         const [esporte, setEsporte]     = useState(null); // 'vela' | 'geral'
-        const [tipoBarco, setTipoBarco] = useState(null); // 'hiking' | 'padrao' (when esporte=vela)
+        const [tipoBarco, setTipoBarco] = useState(null); // 'hiking' | 'padrao'
+        const [classe, setClasse]       = useState(null); // specific boat class
         const [dias, setDias]           = useState(null);
         const [local, setLocal]         = useState(null); // 'academia' | 'casa' | 'sem'
-        const [cardio, setCardio]       = useState(null); // 'corrida' | 'bike' | 'remo' (when local=academia)
+        const [cardio, setCardio]       = useState(null); // 'corrida' | 'bike' | 'remo'
         const [nivel, setNivel]         = useState(null);
         const [showAval, setShowAval]   = useState(false);
         const TOTAL_STEPS = 4;
+
+        const HIKING_CLASSES  = ['Optimist','Laser / ILCA','Snipe','Sunfish','420','470'];
+        const PADRAO_CLASSES  = ['49er','Nacra','Oceano'];
 
         function saveAndFinish(scores) {
             const prof = { firstName: nome.trim()||'Atleta', lastName: sobrenome.trim() };
             saveProfile(prof);
             const equipamentos = local === 'academia' ? ['Academia'] : local === 'casa' ? ['Halteres'] : ['Sem equipamento'];
-            const cardioMode   = local === 'academia' ? (cardio || 'corrida') : 'corrida';
+            const cardioMode   = cardio || 'corrida';
             saveCardioMode(cardioMode);
             saveAvaliacao({
                 esporte: esporte === 'vela' ? 'velejador' : 'geral',
                 tipoBarco: tipoBarco || null,
+                classe: classe || null,
                 hikingSecs:0, plankSecs:0, emomRounds:0, pushReps:0, pullReps:0, squatReps:0,
                 endType:'cooper', endDist:'2400', mobScores:{},
                 diasSemana: dias, equipamentos, scores, setupComplete: true,
@@ -3598,10 +3603,10 @@
         }
 
         const canNext = [
-            nome.trim().length > 0,                                            // step 0
-            esporte !== null && (esporte !== 'vela' || tipoBarco !== null),    // step 1
-            dias !== null && local !== null && (local !== 'academia' || cardio !== null), // step 2
-            nivel !== null,                                                    // step 3 (result pre-save)
+            nome.trim().length > 0,                                                           // step 0
+            esporte !== null && (esporte !== 'vela' || tipoBarco !== null),               // step 1
+            dias !== null && local !== null && cardio !== null,                            // step 2 — cardio sempre obrigatório
+            nivel !== null,                                                               // step 3
         ][step] ?? true;
 
         const DIAS_OPTS = [2,3,4,5,6];
@@ -3690,7 +3695,7 @@
                                         { id:'hiking', icon:'🚤', label:'Com hiking', sub:'Laser · ILCA · 29er · 49er · 470' },
                                         { id:'padrao', icon:'⛵', label:'Sem hiking', sub:'J/24 · Snipe · Dragon · Sportboat · Match' },
                                     ].map(o => (
-                                        <div key={o.id} onClick={() => setTipoBarco(o.id)}
+                                        <div key={o.id} onClick={() => { setTipoBarco(o.id); setClasse(null); }}
                                             style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:12,cursor:'pointer',
                                                 background: tipoBarco===o.id ? 'rgba(200,75,56,0.08)' : 'rgba(24,25,31,0.04)',
                                                 border: tipoBarco===o.id ? '1.5px solid rgba(200,75,56,0.3)' : '1.5px solid transparent',
@@ -3705,6 +3710,22 @@
                                             </div>}
                                         </div>
                                     ))}
+                                </div>
+                            )}
+
+                            {/* Classe do barco */}
+                            {esporte === 'vela' && tipoBarco && (
+                                <div style={{marginLeft:16,marginTop:4,marginBottom:8}}>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:8}}>SEU BARCO (OPCIONAL)</div>
+                                    <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+                                        {(tipoBarco==='hiking' ? HIKING_CLASSES : PADRAO_CLASSES).map(c => (
+                                            <button key={c} onClick={() => setClasse(classe===c ? null : c)} style={{
+                                                padding:'8px 14px', borderRadius:20, fontSize:12, fontWeight:700, border:'none', cursor:'pointer',
+                                                background: classe===c ? '#c84b38' : 'rgba(24,25,31,0.07)',
+                                                color: classe===c ? '#fff' : 'rgba(24,25,31,0.5)',
+                                            }}>{c}</button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 
@@ -3747,10 +3768,30 @@
                                 {check(local==='academia')}
                             </div>
 
-                            {/* Sub-seleção cardio — aparece quando Academia selecionado */}
-                            {local === 'academia' && (
-                                <div style={{marginLeft:16,marginTop:-4,marginBottom:8}}>
-                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:8}}>PREFERÊNCIA DE CARDIO</div>
+                            {/* Casa */}
+                            <div style={tile(local==='casa')} onClick={() => setLocal('casa')}>
+                                <div style={{fontSize:24,flexShrink:0}}>🏠</div>
+                                <div style={{flex:1}}>
+                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Em casa</div>
+                                    <div style={{fontSize:11,opacity:0.55}}>Pesos livres · halteres · barras</div>
+                                </div>
+                                {check(local==='casa')}
+                            </div>
+
+                            {/* Sem equipamento */}
+                            <div style={tile(local==='sem')} onClick={() => setLocal('sem')}>
+                                <div style={{fontSize:24,flexShrink:0}}>🤸</div>
+                                <div style={{flex:1}}>
+                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Sem equipamento</div>
+                                    <div style={{fontSize:11,opacity:0.55}}>Peso corporal · parque · ao ar livre</div>
+                                </div>
+                                {check(local==='sem')}
+                            </div>
+
+                            {/* Cardio — sempre visível após escolher local */}
+                            {local && (
+                                <div style={{marginTop:20}}>
+                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:10}}>PREFERÊNCIA DE CARDIO</div>
                                     <div style={{display:'flex',gap:8}}>
                                         {[
                                             { id:'corrida', icon:'🏃', label:'Corrida' },
@@ -3769,26 +3810,6 @@
                                     </div>
                                 </div>
                             )}
-
-                            {/* Casa */}
-                            <div style={tile(local==='casa')} onClick={() => { setLocal('casa'); setCardio(null); }}>
-                                <div style={{fontSize:24,flexShrink:0}}>🏠</div>
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Em casa</div>
-                                    <div style={{fontSize:11,opacity:0.55}}>Pesos livres · halteres · barras</div>
-                                </div>
-                                {check(local==='casa')}
-                            </div>
-
-                            {/* Sem equipamento */}
-                            <div style={tile(local==='sem')} onClick={() => { setLocal('sem'); setCardio(null); }}>
-                                <div style={{fontSize:24,flexShrink:0}}>🤸</div>
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Sem equipamento</div>
-                                    <div style={{fontSize:11,opacity:0.55}}>Peso corporal · parque · ao ar livre</div>
-                                </div>
-                                {check(local==='sem')}
-                            </div>
                         </div>
                     )}
 
