@@ -511,6 +511,8 @@
         .aval-btn-back { flex: 1; padding: 14px; background: transparent; color: var(--text-dark); border: 1.5px solid rgba(24,25,31,0.2); border-radius: 50px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
         .aval-btn-next { flex: 2; padding: 14px; background: var(--card-navy); color: var(--text-cream); border: none; border-radius: 50px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer; font-family: var(--font-body); text-transform: uppercase; }
         .aval-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+        .aval-input { padding: 12px 14px; background: #fff; border: 1.5px solid rgba(24,25,31,0.16); border-radius: 12px; font-size: 14px; color: var(--text-dark); font-family: var(--font-body); outline: none; box-sizing: border-box; margin-bottom: 8px; }
+        .aval-input:focus { border-color: var(--card-navy); }
         .aval-pill { padding: 10px 18px; background: #fff; border: 1.5px solid rgba(24,25,31,0.16); border-radius: 50px; font-size: 13px; color: var(--text-dark); cursor: pointer; font-family: var(--font-body); font-weight: 500; }
         .aval-pill-on { background: var(--card-navy) !important; color: var(--text-cream) !important; border-color: var(--card-navy) !important; }
         .aval-pill-circle { width: 44px; height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
@@ -3531,334 +3533,26 @@
     };
 
     function TelaOnboarding({ onComplete }) {
-        const profile0 = getProfile();
-        const [slideIdx, setSlideIdx]   = useState(0);
-        const [inWizard, setInWizard]   = useState(false);
-        const [step, setStep]           = useState(0);
-        const [nome, setNome]           = useState(profile0.firstName || '');
-        const [sobrenome, setSobrenome] = useState(profile0.lastName  || '');
-        const [esporte, setEsporte]     = useState(null); // 'vela' | 'geral'
-        const [tipoBarco, setTipoBarco] = useState(null); // 'hiking' | 'padrao'
-        const [classe, setClasse]       = useState(null); // specific boat class
-        const [dias, setDias]           = useState(null);
-        const [local, setLocal]         = useState(null); // 'academia' | 'casa' | 'sem'
-        const [cardio, setCardio]       = useState(null); // 'corrida' | 'bike' | 'remo'
-        const [nivel, setNivel]         = useState(null);
-        const [showAval, setShowAval]   = useState(false);
-        const TOTAL_STEPS = 4;
-
-        const HIKING_CLASSES  = ['Optimist','Laser / ILCA','Snipe','Sunfish','420','470'];
-        const PADRAO_CLASSES  = ['49er','Nacra','Oceano'];
-
-        function saveAndFinish(scores) {
-            const prof = { firstName: nome.trim()||'Atleta', lastName: sobrenome.trim() };
-            saveProfile(prof);
-            const equipamentos = local === 'academia' ? ['Academia'] : local === 'casa' ? ['Halteres'] : ['Sem equipamento'];
-            const cardioMode   = cardio || 'corrida';
-            saveCardioMode(cardioMode);
-            saveAvaliacao({
-                esporte: esporte === 'vela' ? 'velejador' : 'geral',
-                tipoBarco: tipoBarco || null,
-                classe: classe || null,
-                hikingSecs:0, plankSecs:0, emomRounds:0, pushReps:0, pullReps:0, squatReps:0,
-                endType:'cooper', endDist:'2400', mobScores:{},
-                diasSemana: dias, equipamentos, scores, setupComplete: true,
-            });
-            localStorage.setItem('regata_onboarded','1');
-        }
-
-        function handleAvalComplete() {
-            const existing = getAvaliacao();
-            if (existing) saveAvaliacao({ ...existing, setupComplete: true });
-            localStorage.setItem('regata_onboarded', '1');
-            onComplete();
-        }
-
-        // If user chose to do full tests
-        if (showAval) return <TelaAvaliacao onClose={handleAvalComplete}/>;
-
-        // Motivational slides phase
-        if (!inWizard) {
-            const s = OB_SLIDES[slideIdx];
-            const isLast = slideIdx === OB_SLIDES.length - 1;
-            return (
-                <div className="ob-wrap" style={{background: s.bg}}>
-                    <div className="ob-body">
-                        <div className="ob-title" style={{color: s.tc, whiteSpace:'pre-line'}}>{s.title}</div>
-                        <div className="ob-desc" style={{color: s.mc}}>{s.desc}</div>
-                    </div>
-                    <div className="ob-footer">
-                        <div className="ob-dots">
-                            {OB_SLIDES.map((_,i) => (
-                                <div key={i} className="ob-dot" style={{background: i <= slideIdx ? s.da : s.di}}/>
-                            ))}
-                        </div>
-                        <button className="ob-cta" style={{background:s.btnBg, color:s.btnC, border:'none'}}
-                            onClick={() => isLast ? setInWizard(true) : setSlideIdx(i => i+1)}>
-                            {s.btnTxt}
-                        </button>
-                    </div>
-                </div>
-            );
-        }
-
-        const canNext = [
-            nome.trim().length > 0,                                                           // step 0
-            esporte !== null && (esporte !== 'vela' || tipoBarco !== null),               // step 1
-            dias !== null && local !== null && cardio !== null,                            // step 2 — cardio sempre obrigatório
-            nivel !== null,                                                               // step 3
-        ][step] ?? true;
-
-        const DIAS_OPTS = [2,3,4,5,6];
-        const NIVEL_OPTS = [
-            { id:'iniciante',     label:'Iniciante',     sub:'Começo agora ou voltei após pausa longa' },
-            { id:'intermediario', label:'Intermediário', sub:'Treino regular há pelo menos 6 meses' },
-            { id:'avancado',      label:'Avançado',      sub:'Treino consistente há 2+ anos' },
-            { id:'competidor',    label:'Competidor',    sub:'Atleta de alta performance / competição' },
-        ];
-        const stepTitles = ['Quem é você?','Seu esporte','Como você treina?','Seu nível atual'];
-
-        const tile = (active, accent) => ({
-            background: active ? (accent||'#18191f') : '#fff',
-            color: active ? '#f5f0e8' : 'var(--text-dark)',
-            border: active ? 'none' : '1.5px solid rgba(24,25,31,0.1)',
-            borderRadius: 16, padding: '14px 16px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8,
-        });
-        const check = (active) => active ? (
-            <div style={{marginLeft:'auto',width:20,height:20,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </div>
-        ) : null;
-
+        const [slideIdx, setSlideIdx] = useState(0);
+        const [goAval, setGoAval]     = useState(false);
+        if (goAval) return <TelaAvaliacao onComplete={onComplete}/>;
+        const s = OB_SLIDES[slideIdx];
+        const isLast = slideIdx === OB_SLIDES.length - 1;
         return (
-            <div style={{position:'fixed',inset:0,zIndex:400,background:'#f5f0e8',display:'flex',flexDirection:'column'}}>
-                {/* Progress bar */}
-                <div style={{height:3,background:'rgba(24,25,31,0.08)',flexShrink:0}}>
-                    <div style={{height:'100%',width:`${((step+1)/TOTAL_STEPS)*100}%`,background:'#c84b38',transition:'width 0.3s'}}/>
+            <div className="ob-wrap" style={{background: s.bg}}>
+                <div className="ob-body">
+                    <div className="ob-title" style={{color: s.tc, whiteSpace:'pre-line'}}>{s.title}</div>
+                    <div className="ob-desc" style={{color: s.mc}}>{s.desc}</div>
                 </div>
-
-                {/* Header */}
-                <div style={{padding:'20px 20px 0',flexShrink:0,display:'flex',alignItems:'center',gap:12}}>
-                    {step > 0 && (
-                        <button onClick={() => setStep(s => s-1)} style={{background:'rgba(24,25,31,0.07)',border:'none',borderRadius:50,padding:'6px 12px',fontSize:18,cursor:'pointer',color:'var(--text-dark)',lineHeight:1}}>‹</button>
-                    )}
-                    <div>
-                        <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)'}}>{step+1} DE {TOTAL_STEPS} · WE DON'T STOP</div>
-                        <div style={{fontSize:20,fontWeight:700,color:'var(--text-dark)',marginTop:2}}>{stepTitles[step]}</div>
+                <div className="ob-footer">
+                    <div className="ob-dots">
+                        {OB_SLIDES.map((_,i) => (
+                            <div key={i} className="ob-dot" style={{background: i <= slideIdx ? s.da : s.di}}/>
+                        ))}
                     </div>
-                </div>
-
-                {/* Content */}
-                <div style={{flex:1,padding:'24px 20px',overflowY:'auto'}}>
-
-                    {/* STEP 0: Nome */}
-                    {step === 0 && (
-                        <div>
-                            <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',marginBottom:24,lineHeight:1.5}}>
-                                Seu plano é feito para você. Começa pelo nome.
-                            </div>
-                            {[
-                                {label:'NOME', val:nome, set:setNome, ph:'Ex: Bruno'},
-                                {label:'SOBRENOME', val:sobrenome, set:setSobrenome, ph:'Ex: Fontes'},
-                            ].map(f => (
-                                <div key={f.label} style={{marginBottom:18}}>
-                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:6}}>{f.label}</div>
-                                    <input value={f.val} placeholder={f.ph} onChange={e => f.set(e.target.value)}
-                                        style={{width:'100%',padding:'12px 16px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:12,fontSize:16,fontWeight:500,color:'var(--text-dark)',background:'#fff',boxSizing:'border-box',outline:'none'}}/>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* STEP 1: Esporte */}
-                    {step === 1 && (
-                        <div>
-                            <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',marginBottom:20,lineHeight:1.5}}>
-                                O plano muda dependendo do seu esporte. Isso importa muito.
-                            </div>
-
-                            {/* Vela */}
-                            <div style={tile(esporte==='vela')} onClick={() => { setEsporte('vela'); }}>
-                                <div style={{fontSize:24,flexShrink:0}}>⛵</div>
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Vela</div>
-                                    <div style={{fontSize:11,opacity:0.55}}>Laser · ILCA · J/24 · Snipe · 49er · qualquer barco</div>
-                                </div>
-                                {check(esporte==='vela')}
-                            </div>
-
-                            {/* Sub-seleção de tipo de barco — aparece quando Vela está selecionado */}
-                            {esporte === 'vela' && (
-                                <div style={{marginLeft:16,marginTop:-4,marginBottom:8,display:'flex',flexDirection:'column',gap:6}}>
-                                    {[
-                                        { id:'hiking', icon:'🚤', label:'Com hiking', sub:'Laser · ILCA · 29er · 49er · 470' },
-                                        { id:'padrao', icon:'⛵', label:'Sem hiking', sub:'J/24 · Snipe · Dragon · Sportboat · Match' },
-                                    ].map(o => (
-                                        <div key={o.id} onClick={() => { setTipoBarco(o.id); setClasse(null); }}
-                                            style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',borderRadius:12,cursor:'pointer',
-                                                background: tipoBarco===o.id ? 'rgba(200,75,56,0.08)' : 'rgba(24,25,31,0.04)',
-                                                border: tipoBarco===o.id ? '1.5px solid rgba(200,75,56,0.3)' : '1.5px solid transparent',
-                                            }}>
-                                            <div style={{fontSize:18}}>{o.icon}</div>
-                                            <div style={{flex:1}}>
-                                                <div style={{fontSize:13,fontWeight:700,color:'var(--text-dark)'}}>{o.label}</div>
-                                                <div style={{fontSize:11,color:'rgba(24,25,31,0.45)'}}>{o.sub}</div>
-                                            </div>
-                                            {tipoBarco===o.id && <div style={{width:16,height:16,borderRadius:'50%',background:'#c84b38',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                                <svg width="8" height="6" viewBox="0 0 8 6" fill="none"><path d="M1 3L3 5L7 1" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                            </div>}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Classe do barco */}
-                            {esporte === 'vela' && tipoBarco && (
-                                <div style={{marginLeft:16,marginTop:4,marginBottom:8}}>
-                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:8}}>SEU BARCO (OPCIONAL)</div>
-                                    <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
-                                        {(tipoBarco==='hiking' ? HIKING_CLASSES : PADRAO_CLASSES).map(c => (
-                                            <button key={c} onClick={() => setClasse(classe===c ? null : c)} style={{
-                                                padding:'8px 14px', borderRadius:20, fontSize:12, fontWeight:700, border:'none', cursor:'pointer',
-                                                background: classe===c ? '#c84b38' : 'rgba(24,25,31,0.07)',
-                                                color: classe===c ? '#fff' : 'rgba(24,25,31,0.5)',
-                                            }}>{c}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Atleta Geral */}
-                            <div style={tile(esporte==='geral')} onClick={() => { setEsporte('geral'); setTipoBarco(null); }}>
-                                <div style={{fontSize:24,flexShrink:0}}>💪</div>
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Atleta Geral</div>
-                                    <div style={{fontSize:11,opacity:0.55}}>Funcional · Corrida · CrossFit · outro esporte</div>
-                                </div>
-                                {check(esporte==='geral')}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* STEP 2: Dias + Local */}
-                    {step === 2 && (
-                        <div>
-                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:10}}>DIAS POR SEMANA</div>
-                            <div style={{display:'flex',gap:8,marginBottom:24}}>
-                                {DIAS_OPTS.map(d => (
-                                    <button key={d} onClick={() => setDias(d)} style={{
-                                        flex:1, padding:'14px 0', border:'none', borderRadius:14, fontSize:18, fontWeight:700,
-                                        cursor:'pointer', background: dias===d ? '#18191f' : '#fff',
-                                        color: dias===d ? '#f5f0e8' : 'rgba(24,25,31,0.4)',
-                                        boxShadow: dias===d ? 'none' : '0 1px 4px rgba(24,25,31,0.07)',
-                                    }}>{d}</button>
-                                ))}
-                            </div>
-
-                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:12}}>ONDE VOCÊ TREINA?</div>
-
-                            {/* Academia */}
-                            <div style={tile(local==='academia')} onClick={() => setLocal('academia')}>
-                                <div style={{fontSize:24,flexShrink:0}}>🏋️</div>
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Academia completa</div>
-                                    <div style={{fontSize:11,opacity:0.55}}>Musculação · cardio · halteres · máquinas</div>
-                                </div>
-                                {check(local==='academia')}
-                            </div>
-
-                            {/* Casa */}
-                            <div style={tile(local==='casa')} onClick={() => setLocal('casa')}>
-                                <div style={{fontSize:24,flexShrink:0}}>🏠</div>
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Em casa</div>
-                                    <div style={{fontSize:11,opacity:0.55}}>Pesos livres · halteres · barras</div>
-                                </div>
-                                {check(local==='casa')}
-                            </div>
-
-                            {/* Sem equipamento */}
-                            <div style={tile(local==='sem')} onClick={() => setLocal('sem')}>
-                                <div style={{fontSize:24,flexShrink:0}}>🤸</div>
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>Sem equipamento</div>
-                                    <div style={{fontSize:11,opacity:0.55}}>Peso corporal · parque · ao ar livre</div>
-                                </div>
-                                {check(local==='sem')}
-                            </div>
-
-                            {/* Cardio — sempre visível após escolher local */}
-                            {local && (
-                                <div style={{marginTop:20}}>
-                                    <div style={{fontSize:9,fontWeight:700,letterSpacing:1.2,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:10}}>PREFERÊNCIA DE CARDIO</div>
-                                    <div style={{display:'flex',gap:8}}>
-                                        {[
-                                            { id:'corrida', icon:'🏃', label:'Corrida' },
-                                            { id:'bike',    icon:'🚴', label:'Bike' },
-                                            { id:'remo',    icon:'🚣', label:'Remo' },
-                                        ].map(o => (
-                                            <button key={o.id} onClick={() => setCardio(o.id)} style={{
-                                                flex:1, padding:'10px 4px', border:'none', borderRadius:12, cursor:'pointer', fontSize:11, fontWeight:700,
-                                                background: cardio===o.id ? '#c84b38' : 'rgba(24,25,31,0.06)',
-                                                color: cardio===o.id ? '#fff' : 'rgba(24,25,31,0.5)',
-                                            }}>
-                                                <div style={{fontSize:18,marginBottom:2}}>{o.icon}</div>
-                                                {o.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* STEP 3: Nível / Testes */}
-                    {step === 3 && (
-                        <div>
-                            <div style={{fontSize:14,color:'rgba(24,25,31,0.55)',marginBottom:8,lineHeight:1.5}}>
-                                Seja honesto. O plano será calibrado para o seu nível real.
-                            </div>
-                            <div style={{background:'rgba(232,122,69,0.08)',borderRadius:12,padding:'12px 16px',marginBottom:20,border:'1.5px solid rgba(232,122,69,0.2)'}}>
-                                <div style={{fontSize:11,fontWeight:700,color:'#e87a45',marginBottom:4}}>💡 OPÇÃO: FAZER OS TESTES</div>
-                                <div style={{fontSize:12,color:'rgba(24,25,31,0.65)',lineHeight:1.4,marginBottom:10}}>Testes de 15min (hiking bench, core, endurance, mobilidade) geram um plano muito mais preciso.</div>
-                                <button onClick={() => setShowAval(true)} style={{width:'100%',padding:'11px',background:'#e87a45',color:'#fff',border:'none',borderRadius:10,fontSize:12,fontWeight:700,letterSpacing:0.5,cursor:'pointer'}}>
-                                    FAZER OS TESTES AGORA →
-                                </button>
-                            </div>
-                            <div style={{fontSize:9,fontWeight:700,letterSpacing:1.6,textTransform:'uppercase',color:'rgba(24,25,31,0.4)',marginBottom:12}}>OU ESCOLHA SEU NÍVEL ESTIMADO</div>
-                            {NIVEL_OPTS.map(o => (
-                                <div key={o.id} style={tile(nivel===o.id)} onClick={() => setNivel(o.id)}>
-                                    <div style={{flex:1}}>
-                                        <div style={{fontSize:14,fontWeight:700,marginBottom:2}}>{o.label}</div>
-                                        <div style={{fontSize:11,opacity:0.55}}>{o.sub}</div>
-                                    </div>
-                                    {check(nivel===o.id)}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer CTA */}
-                <div style={{padding:'12px 20px',paddingBottom:'max(24px,env(safe-area-inset-bottom,24px))',background:'#f5f0e8',borderTop:'1px solid rgba(24,25,31,0.07)',flexShrink:0}}>
-                    <button
-                        disabled={!canNext}
-                        onClick={() => {
-                            if (step < 3) { setStep(s => s + 1); return; }
-                            // step 3 — save and unlock
-                            const scores = OB_LEVEL_SCORES[nivel] || OB_LEVEL_SCORES.intermediario;
-                            saveAndFinish(scores);
-                            onComplete();
-                        }}
-                        style={{
-                            width:'100%', padding:15,
-                            background: canNext ? '#c84b38' : 'rgba(24,25,31,0.1)',
-                            color: canNext ? '#fff' : 'rgba(24,25,31,0.3)',
-                            border:'none', borderRadius:50, fontSize:13, fontWeight:700,
-                            letterSpacing:0.5, cursor: canNext ? 'pointer' : 'default',
-                        }}>
-                        {step === 3 ? 'GERAR MEU PLANO →' : 'CONTINUAR'}
+                    <button className="ob-cta" style={{background:s.btnBg, color:s.btnC, border:'none'}}
+                        onClick={() => isLast ? setGoAval(true) : setSlideIdx(i => i+1)}>
+                        {s.btnTxt}
                     </button>
                 </div>
             </div>
@@ -4011,8 +3705,14 @@
         );
     }
 
-    function TelaAvaliacao({ onClose }) {
+    function TelaAvaliacao({ onClose, onComplete }) {
         const [step, setStep] = useState(1);
+        const isOnboarding = !!onComplete;
+
+        // Perfil (nome — coletado no onboarding, pré-preenchido na reavaliação)
+        const profile0 = React.useMemo(() => getProfile(), []);
+        const [nome, setNome]           = useState(profile0.firstName || '');
+        const [sobrenome, setSobrenome] = useState(profile0.lastName  || '');
 
         // Step 1: Quem é você
         const [esporte, setEsporte]     = useState(null);
@@ -4021,6 +3721,9 @@
         const [categoria, setCategoria] = useState(null);
         const [idade, setIdade]         = useState(30);
         const [velejando, setVelejando] = useState(5);
+
+        // Cardio preference (step 2)
+        const [cardio, setCardio]       = useState(null);
 
         const includeHiking = esporte === 'velejador' && tipoBarco === 'hiking';
         const TOTAL = includeHiking ? 8 : 7;
@@ -4090,6 +3793,7 @@
 
         const canNext = () => {
             if (step===1) {
+                if (isOnboarding && nome.trim().length === 0) return false;
                 if (!esporte) return false;
                 if (esporte === 'velejador') return tipoBarco !== null;
                 return true;
@@ -4122,6 +3826,13 @@
                 <div className="aval-step-tag">QUEM É VOCÊ</div>
                 <div className="aval-title">Seu perfil</div>
                 <div className="aval-desc">Vamos personalizar tudo com base no seu esporte e experiência.</div>
+                {isOnboarding && (<>
+                    <div className="aval-label">SEU NOME</div>
+                    <div style={{display:'flex',gap:10,marginBottom:4}}>
+                        <input value={nome} onChange={e=>setNome(e.target.value)} placeholder="Nome" className="aval-input" style={{flex:1}}/>
+                        <input value={sobrenome} onChange={e=>setSobrenome(e.target.value)} placeholder="Sobrenome" className="aval-input" style={{flex:1}}/>
+                    </div>
+                </>)}
                 <div className="aval-label">ESPORTE / ATIVIDADE</div>
                 <div className="aval-pills">
                     {esportes.map(e => (
@@ -4212,6 +3923,12 @@
                 <div className="aval-pills">
                     {equips.map(e => (
                         <button key={e} className={`aval-pill${equipamentos.includes(e)?' aval-pill-on':''}`} onClick={() => toggleEquip(e)}>{e}</button>
+                    ))}
+                </div>
+                <div className="aval-label">PREFERÊNCIA DE CARDIO</div>
+                <div className="aval-pills">
+                    {[{id:'corrida',l:'🏃 Corrida'},{id:'bike',l:'🚴 Bike'},{id:'remo',l:'🚣 Remo'}].map(o => (
+                        <button key={o.id} className={`aval-pill${cardio===o.id?' aval-pill-on':''}`} onClick={() => setCardio(o.id)}>{o.l}</button>
                     ))}
                 </div>
             </>);
@@ -4774,12 +4491,14 @@
                     {stepContent(step)==='resultado'&&renderResultado()}
                 </div>
                 <div className="aval-footer">
-                    <button className="aval-btn-back"
-                        onClick={step===1 ? onClose : () => setStep(s=>s-1)}>
-                        {step===1 ? 'Sair' : 'Voltar'}
-                    </button>
+                    {(!isOnboarding || step > 1) && (
+                        <button className="aval-btn-back"
+                            onClick={step===1 ? onClose : () => setStep(s=>s-1)}>
+                            {step===1 ? 'Sair' : 'Voltar'}
+                        </button>
+                    )}
                     {step<TOTAL ? (
-                        <button className="aval-btn-next" style={{opacity:canNext()?1:0.38}}
+                        <button className="aval-btn-next" style={{opacity:canNext()?1:0.38, marginLeft: isOnboarding&&step===1?'auto':undefined}}
                             onClick={() => canNext()&&setStep(s=>s+1)}>
                             {step===TOTAL-1?'Ver Resultado':'Continuar →'}
                         </button>
@@ -4799,7 +4518,14 @@
                                     ];
                                 })() : null;
                                 saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe, categoria, diasSemana, equipamentos, hrMax: useHR?hrMax:null, hrRest: useHR?hrRest:null, hrZones, setupComplete: true });
-                                onClose();
+                                if (cardio) saveCardioMode(cardio);
+                                if (isOnboarding) {
+                                    saveProfile({ firstName: nome.trim()||'Atleta', lastName: sobrenome.trim() });
+                                    localStorage.setItem('regata_onboarded','1');
+                                    onComplete();
+                                } else {
+                                    onClose();
+                                }
                             }}>GERAR PLANO DE 4 SEMANAS</button>
                     )}
                 </div>
