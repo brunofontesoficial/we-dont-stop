@@ -5459,6 +5459,114 @@
                     ]},
                 ],
             },
+            // ── ENDURANCE DAY (3 blocks: Mobilidade → Core → Endurance) ───
+            endurance_day: {
+                L: [
+                    { title:'MOBILIDADE', color:'#3db87a', items:[
+                        {name:'Abertura de quadril',   detail:'1 × 45s cada', rest:''},
+                        {name:'Leg swing frontal',     detail:'1 × 10 cada',  rest:''},
+                        {name:'Cat-cow',               detail:'1 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Prancha frontal',       detail:'2 × 20s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'2 × 8 rep',    rest:'30s'},
+                        {name:'Burpees',               detail:'2 × 5 rep',    rest:'60s'},
+                    ]},
+                    { title:`ENDURANCE · ${mode.toUpperCase()} · Z2`, color:'#2d6b4f', items:[
+                        {name:cardioExercise,          detail:'20 min Z2',    rest:''},
+                        {name:'Recuperação ativa',     detail:'5 min',        rest:''},
+                    ]},
+                ],
+                M: [
+                    { title:'MOBILIDADE', color:'#3db87a', items:[
+                        {name:'Abertura de quadril',   detail:'2 × 45s cada', rest:''},
+                        {name:'Leg swing frontal',     detail:'2 × 10 cada',  rest:''},
+                        {name:'Torção torácica',       detail:'1 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Hollow hold',           detail:'3 × 20s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'3 × 10 rep',   rest:'30s'},
+                        {name:'Prancha lateral',       detail:'2 × 30s cada', rest:'30s'},
+                        {name:'Burpees',               detail:'3 × 8 rep',    rest:'60s'},
+                    ]},
+                    { title:`ENDURANCE · ${mode.toUpperCase()} · Z2`, color:'#2d6b4f', items:[
+                        {name:cardioExercise,          detail:'30 min Z2',    rest:''},
+                        {name:'Variação de cadência',  detail:'3 × 2 min',    rest:'60s'},
+                    ]},
+                ],
+                H: [
+                    { title:'MOBILIDADE', color:'#3db87a', items:[
+                        {name:'Abertura de quadril',   detail:'2 × 60s cada', rest:''},
+                        {name:'Leg swing multi-plano', detail:'2 × 12 cada',  rest:''},
+                        {name:`${cardioExercise} prog.`, detail:'8 min',      rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Hollow hold',           detail:'4 × 30s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'4 × 12 rep',   rest:'30s'},
+                        {name:'Prancha lateral',       detail:'3 × 40s cada', rest:'30s'},
+                        {name:'Burpees',               detail:'4 × 10 rep',   rest:'60s'},
+                        {name:'Push-up',               detail:'3 × 12 rep',   rest:'45s'},
+                    ]},
+                    { title:`ENDURANCE · ${mode.toUpperCase()} · Z2–3`, color:'#2d6b4f', items:[
+                        {name:cardioExercise,          detail:'35 min Z2',    rest:''},
+                        {name:'Intervalo Z3',          detail:'4 × 3 min',    rest:'90s'},
+                        {name:'Variação de cadência',  detail:'5 × 2 min',    rest:'45s'},
+                    ]},
+                ],
+            },
+            // ── SAILING ENDURANCE (specific vela variant for hiking boats) ─
+            sailing_endurance: {
+                L: [
+                    { title:'MOBILIDADE', color:'#4a8fd9', items:[
+                        {name:'Abertura de quadril',   detail:'1 × 45s cada', rest:''},
+                        {name:'Leg swing frontal',     detail:'1 × 10 cada',  rest:''},
+                        {name:'Cat-cow',               detail:'1 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Prancha frontal',       detail:'2 × 20s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'2 × 8 rep',    rest:'30s'},
+                    ]},
+                    { title:'ENDURANCE ESPECÍFICO · VELA', color:'#4a8fd9', items:[
+                        {name:cardioExercise,                 detail:'20 min Z2',    rest:''},
+                        {name:'Hiking isométrico centro',     detail:'6 × 1 min',    rest:'45s'},
+                        {name:'Hiking isométrico lateral',    detail:'4 × 45s cada', rest:'45s'},
+                    ]},
+                ],
+                M: [
+                    { title:'MOBILIDADE', color:'#4a8fd9', items:[
+                        {name:'Abertura de quadril',   detail:'2 × 45s cada', rest:''},
+                        {name:'Leg swing frontal',     detail:'2 × 10 cada',  rest:''},
+                        {name:'Torção torácica',       detail:'1 × 10 rep',   rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Hollow hold',           detail:'3 × 20s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'3 × 10 rep',   rest:'30s'},
+                        {name:'Prancha lateral',       detail:'2 × 30s cada', rest:'30s'},
+                    ]},
+                    { title:'ENDURANCE ESPECÍFICO · VELA', color:'#4a8fd9', items:[
+                        {name:cardioExercise,                 detail:'25 min Z2',    rest:''},
+                        {name:'Hiking isométrico centro',     detail:'6 × 90s',      rest:'45s'},
+                        {name:'Hiking isométrico lateral',    detail:'4 × 60s cada', rest:'45s'},
+                    ]},
+                ],
+                H: [
+                    { title:'MOBILIDADE', color:'#4a8fd9', items:[
+                        {name:'Abertura de quadril',   detail:'2 × 60s cada', rest:''},
+                        {name:'Leg swing multi-plano', detail:'2 × 12 cada',  rest:''},
+                        {name:`${cardioExercise} prog.`, detail:'8 min',      rest:''},
+                    ]},
+                    { title:'CORE', color:'#9b7dd4', items:[
+                        {name:'Hollow hold',           detail:'4 × 30s',      rest:'30s'},
+                        {name:'Dead bug',              detail:'4 × 12 rep',   rest:'30s'},
+                        {name:'Prancha lateral',       detail:'3 × 40s cada', rest:'30s'},
+                    ]},
+                    { title:'ENDURANCE ESPECÍFICO · VELA', color:'#4a8fd9', items:[
+                        {name:cardioExercise,                 detail:'30 min Z2',    rest:''},
+                        {name:'Hiking isométrico centro',     detail:'6 × 2 min',    rest:'45s'},
+                        {name:'Hiking isométrico lateral',    detail:'4 × 90s cada', rest:'45s'},
+                    ]},
+                ],
+            },
             // ── CORE ───────────────────────────────────────────────────────
             core: {
                 L: [
@@ -5591,10 +5699,11 @@
         function equipFilter(items) {
             if (hasAcademia) return items;
             const subs = {
-                'Farmer carry':         {name:'Agachamento sumô',      detail:'3 × 30s',      rest:'60s'},
-                'Barra / inverted row': {name:'Inverted row (mesa)',   detail:null,            rest:null},
-                'Step-up lastrado':     {name:'Step-up',               detail:null,            rest:null},
-                'Ab wheel rollout':     {name:'Mountain climbers',     detail:'3 × 20 rep',    rest:'60s'},
+                'Farmer carry':          {name:'Agachamento sumô',     detail:'3 × 30s',      rest:'60s'},
+                'Barra / inverted row':  {name:'Inverted row (mesa)',  detail:null,            rest:null},
+                'Step-up lastrado':      {name:'Step-up',              detail:null,            rest:null},
+                'Hiking bench lastrado': {name:'Hiking bench',         detail:null,            rest:null},
+                'Ab wheel rollout':      {name:'Mountain climbers',    detail:'3 × 20 rep',    rest:'60s'},
             };
             return items.map(item => {
                 const sub = subs[item.name];
