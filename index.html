@@ -1126,6 +1126,13 @@
         const raceDaysLeft = nextEvent ? getRaceDaysLeft(nextEvent.date) : null;
         const upcomingCount = getEvents().filter(e => new Date(e.date+'T00:00:00') >= new Date(new Date().setHours(0,0,0,0))).length;
         const aval = getAvaliacao();
+        const sessionTier = (() => {
+            if (!aval?.scores || isRest) return null;
+            const scoreMap = { endurance:'endurance', hiking:'hiking', forca:'forca', core:'core', ativo:'mobilidade' };
+            const key = scoreMap[todayDay.type];
+            const score = key ? (aval.scores[key] ?? 50) : 50;
+            return score < 35 ? 'L' : score < 65 ? 'M' : 'H';
+        })();
 
         // Proxy readiness from aval scores when no wearable connected
         const readiness = (() => {
@@ -1345,7 +1352,13 @@
                             <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
                                 <div>
                                     <div className="sessao-title">{todayDay.name}</div>
-                                    <div className="card-sub" style={{color:'rgba(245,240,232,0.5)',marginTop:4}}>{todayDay.type?.toUpperCase()} · {todayDay.dur} · {totalExCount} exercícios</div>
+                                    <div className="card-sub" style={{color:'rgba(245,240,232,0.5)',marginTop:4}}>
+                                        {todayDay.type?.toUpperCase()} · {todayDay.dur} · {totalExCount} exercícios
+                                        {sessionTier && (() => {
+                                            const t = {L:{l:'LEVE',c:'#e87a45'},M:{l:'MODERADO',c:'#f0c52e'},H:{l:'INTENSO',c:'#3db87a'}}[sessionTier];
+                                            return <span style={{fontSize:8,fontWeight:700,letterSpacing:'1px',color:t.c,border:`1px solid ${t.c}60`,borderRadius:10,padding:'2px 7px',marginLeft:8}}>{t.l}</span>;
+                                        })()}
+                                    </div>
                                 </div>
                             </div>
                             <div style={{marginTop:10,background:'#18191f',color:'#f5f0e8',borderRadius:20,padding:'7px 14px',fontSize:10,fontWeight:700,display:'inline-block'}}>INICIAR SESSÃO →</div>
