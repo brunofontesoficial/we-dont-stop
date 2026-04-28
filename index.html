@@ -965,9 +965,11 @@
     }
 
     function getMetricSeries(field, days) {
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
+        const cutoffStr = cutoff.toLocaleDateString('sv');
         return getBiometricLog()
-            .filter(e => (e[field] || 0) > 0)
-            .slice(-days);
+            .filter(e => (e[field] || 0) > 0 && e.date >= cutoffStr);
     }
 
     function getMetricBaseline(field, days) {
