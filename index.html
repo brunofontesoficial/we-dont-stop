@@ -3740,7 +3740,7 @@
         }
 
         // Step 2: Contexto (pré-preenchido na reavaliação)
-        const [objetivo, setObjetivo] = useState(null);
+        const [objetivo, setObjetivo] = useState(() => existingAval.objetivo || null);
         const [diasSemana, setDiasSemana] = useState(() => existingAval.diasSemana || 4);
         const [equipamentos, setEquipamentos] = useState(() => existingAval.equipamentos || []);
 
