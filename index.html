@@ -5105,9 +5105,9 @@
         ];
         const [tabataA, tabataB] = TABATA_PAIRS[weekIdx];
         const ESD = {
-            L: { label:'SHORT',     sets:4,  duration:'2–3 min',   rpe:'RPE 3–7'  },
-            M: { label:'THRESHOLD', sets:7,  duration:'2–6 min',   rpe:'RPE 3–7'  },
-            H: { label:'SPRINT',    sets:13, duration:'0:30–5 min', rpe:'RPE 2–10' },
+            L: { label:'SHORT',     detail:'4 × 3 min (RPE 7) + 2 min (RPE 2)'  },
+            M: { label:'THRESHOLD', detail:'6 × 3 min (RPE 7) + 90s (RPE 2)'    },
+            H: { label:'SPRINT',    detail:'8 × 1 min (RPE 9) + 90s (RPE 2)'    },
         }[tier];
         const esdExercise = mode === 'bike' ? 'Bike' : 'Ergômetro (remo)';
         const RECOVERY_BLOCK = { title:'RECUPERAÇÃO', color:'#3db87a', items:[
@@ -5410,7 +5410,7 @@
                         ...hikingForcaAdd,
                     ]},
                     { title:`ESD · ${ESD.label}`, color:'#e87a45', items:[
-                        { name:esdExercise, detail:`${ESD.sets} × ${ESD.duration} · ${ESD.rpe}`, rest:'completo entre séries' },
+                        { name:esdExercise, detail:ESD.detail, rest:'' },
                         ...hikingWorkoutAdd,
                     ]},
                 ],
@@ -5433,7 +5433,7 @@
                         ...hikingForcaAdd,
                     ]},
                     { title:`ESD · ${ESD.label}`, color:'#e87a45', items:[
-                        { name:esdExercise, detail:`${ESD.sets} × ${ESD.duration} · ${ESD.rpe}`, rest:'completo entre séries' },
+                        { name:esdExercise, detail:ESD.detail, rest:'' },
                         ...hikingWorkoutAdd,
                     ]},
                 ],
@@ -5457,7 +5457,7 @@
                         ...hikingForcaAdd,
                     ]},
                     { title:`ESD · ${ESD.label}`, color:'#e87a45', items:[
-                        { name:esdExercise, detail:`${ESD.sets} × ${ESD.duration} · ${ESD.rpe}`, rest:'completo entre séries' },
+                        { name:esdExercise, detail:ESD.detail, rest:'' },
                         ...hikingWorkoutAdd,
                     ]},
                 ],
