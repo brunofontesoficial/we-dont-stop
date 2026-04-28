@@ -3335,7 +3335,7 @@
     function TelaBiometria({ onClose }) {
         const today = new Date().toLocaleDateString('sv');
         const log   = React.useMemo(() => getBiometricLog(), []);
-        const todayEntry = log.find(e => e.date === today) || { date:today, hrv:0, disposicao:0, sono:0 };
+        const todayEntry = log.find(e => e.date === today) || { date:today, hrv:0, fcRepouso:0, disposicao:0, sono:0 };
         const [draft, setDraft] = React.useState(todayEntry);
         const [saved, setSaved]  = React.useState(!!log.find(e => e.date === today));
         const set = (k, v) => setDraft(d => ({...d, [k]: v}));
@@ -3359,6 +3359,9 @@
                     </div>
                     {field === 'hrv' ? (
                         <input type="number" inputMode="numeric" placeholder="ex: 58" value={v||''} onChange={e => set(field, parseFloat(e.target.value)||0)}
+                            style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}/>
+                    ) : field === 'fcRepouso' ? (
+                        <input type="number" inputMode="numeric" placeholder="ex: 47" value={v||''} onChange={e => set(field, parseFloat(e.target.value)||0)}
                             style={{width:'100%',padding:'10px 14px',border:'1.5px solid rgba(24,25,31,0.12)',borderRadius:10,fontSize:15,color:'var(--text-dark)',background:'rgba(24,25,31,0.03)',boxSizing:'border-box',outline:'none'}}/>
                     ) : field === 'sono' ? (
                         <input type="number" inputMode="decimal" placeholder="ex: 7.5" value={v||''} onChange={e => set(field, parseFloat(e.target.value)||0)}
