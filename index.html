@@ -4697,7 +4697,7 @@
         const hasErgo     = equip.includes('Ergômetro');
 
         // Primary cardio mode: sport takes precedence, then equipment
-        let cardioMode = 'corrida';
+        let cardioMode = getCardioMode() || 'corrida';
         if (esporte === 'ciclista')                             cardioMode = 'bike';
         else if (esporte === 'remador' || esporte === 'remo')  cardioMode = 'remo';
         else if (hasErgo && esporte !== 'corredor')            cardioMode = 'remo';
@@ -4768,8 +4768,7 @@
 
         // Build candidate pool by sport + objetivo: weak areas first, emphasis applied
         const objetivo   = aval?.objetivo || null;
-        const enduranceW = ['corredor','ciclista','remador','remo','triatleta'].includes(esporte) ? 2
-                         : objetivo === 'Aventura' ? 2 : 1;
+        const enduranceW = 2;
         const forcaW     = esporte === 'crossfit' ? 2
                          : objetivo === 'Performance' || objetivo === 'Competir' ? 2 : 1;
 
