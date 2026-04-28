@@ -612,15 +612,16 @@
         if (!data || !data.length) return null;
         const W = 100, H = 36;
         const max = Math.max(...data, avgLine || 0, 1);
-        const bw  = Math.max(Math.floor(W / data.length) - 2, 2);
+        const stride = W / data.length;
+        const bw  = Math.max(stride - 2, 1);
         return (
             <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
                 {data.map((v, i) => {
                     const bh    = v > 0 ? Math.max(Math.round((v / max) * (H - 4)), 3) : 0;
-                    const below = avgLine && v > 0 && v < avgLine * 0.95;
+                    const below = avgLine != null && v > 0 && v < avgLine * 0.95;
                     const isToday = i === data.length - 1;
                     const fill  = below ? '#e87a45' : isToday ? color : `${color}88`;
-                    return <rect key={i} x={i * (bw + 2)} y={H - bh} width={bw} height={bh} rx="2" fill={fill}/>;
+                    return <rect key={i} x={i * stride} y={H - bh} width={bw} height={bh} rx="2" fill={fill}/>;
                 })}
                 {avgLine != null && (
                     <line
