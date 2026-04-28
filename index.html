@@ -3939,9 +3939,26 @@
         }
 
         function saveAndComplete() {
-            const defaultScores = { core:52, forca:52, endurance:52, hiking: includeHiking?52:0, mobilidade:62 };
+            // Score base por idade (sem testes — garante tier diferente por faixa)
+            let base = 32; // adulto padrão → L/M border
+            if (idade < 13)       base = 18;  // criança → L claro
+            else if (idade < 18)  base = 28;  // junior  → L
+            else if (idade >= 65) base = 18;  // sênior  → L claro
+            else if (idade >= 50) base = 28;  // master  → L
+            // Ajuste por objetivo
+            if (objetivo === 'Competir')        base = Math.min(base + 28, 68);
+            else if (objetivo === 'Performance') base = Math.min(base + 18, 58);
+            else if (objetivo === 'Aventura')    base = Math.max(base - 5, 15);
+            // mobilidade tende a ser melhor; hiking só se inclui
+            const defaultScores = {
+                core:      base,
+                forca:     Math.max(base - 4, 15),
+                endurance: base,
+                hiking:    includeHiking ? Math.max(base - 4, 15) : 0,
+                mobilidade:Math.min(base + 12, 78),
+            };
             const classeReal = classe === 'Outro' ? (classeOutro.trim() || 'Outro') : classe;
-            saveAvaliacao({ esporte, tipoBarco, classe:classeReal, idade, hikingSecs:0, plankSecs:0, emomRounds:0, pushReps:0, pullReps:0, squatReps:0, endType:'cooper', endDist:'2400', mobScores:{}, scores:defaultScores, diasSemana, equipamentos, hrMax:null, hrRest:null, hrZones:null, setupComplete:true });
+            saveAvaliacao({ esporte, tipoBarco, classe:classeReal, idade, objetivo, hikingSecs:0, plankSecs:0, emomRounds:0, pushReps:0, pullReps:0, squatReps:0, endType:'cooper', endDist:'2400', mobScores:{}, scores:defaultScores, diasSemana, equipamentos, hrMax:null, hrRest:null, hrZones:null, setupComplete:true });
             if (cardio) saveCardioMode(cardio);
             if (isOnboarding) {
                 saveProfile({ firstName: nome.trim()||'Atleta', lastName: sobrenome.trim() });
@@ -4567,7 +4584,7 @@
                                         { name:'Z5 · Máximo',       color:'#c84b38', lo: Math.round(hrRest+0.90*HRR), hi: hrMax },
                                     ];
                                 })() : null;
-                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe:classeReal, idade, diasSemana, equipamentos, hrMax: useHR?hrMax:null, hrRest: useHR?hrRest:null, hrZones, setupComplete: true });
+                                saveAvaliacao({ esporte, tipoBarco, hikingSecs: includeHiking?hikingSecs:0, plankSecs, emomRounds: emomRounds||0, pushReps: pushReps||0, pullReps: pullReps||0, squatReps: squatReps||0, endType, endDist, mobScores, scores, classe:classeReal, idade, objetivo, diasSemana, equipamentos, hrMax: useHR?hrMax:null, hrRest: useHR?hrRest:null, hrZones, setupComplete: true });
                                 if (cardio) saveCardioMode(cardio);
                                 if (isOnboarding) {
                                     saveProfile({ firstName: nome.trim()||'Atleta', lastName: sobrenome.trim() });
@@ -4671,10 +4688,12 @@
         };
         function d(type, wi) { return { type, ...DAY_NAMES[type][Math.min(wi,3)] }; }
 
-        // Build candidate pool by sport: weak areas first, sport emphasis applied
-        // enduranceW/forcaW: how many slots each type occupies before cycling
-        const enduranceW = ['corredor','ciclista','remador','remo','triatleta'].includes(esporte) ? 2 : 1;
-        const forcaW     = esporte === 'crossfit' ? 2 : 1;
+        // Build candidate pool by sport + objetivo: weak areas first, emphasis applied
+        const objetivo   = aval?.objetivo || null;
+        const enduranceW = ['corredor','ciclista','remador','remo','triatleta'].includes(esporte) ? 2
+                         : objetivo === 'Aventura' ? 2 : 1;
+        const forcaW     = esporte === 'crossfit' ? 2
+                         : objetivo === 'Performance' || objetivo === 'Competir' ? 2 : 1;
 
         const scoreOf = t => scores?.[t === 'hiking' ? 'hiking' : t] ?? 50;
 
@@ -5338,8 +5357,11 @@
         const [refreshKey,   setRefreshKey]   = useState(0);
 
         const [sessionData, setSessionData] = useState(null);
+        const [toast, setToast] = useState(null);
+        const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
         const openSession = (data) => { setSessionData(data); setModal('sessao'); };
         const closeModal  = () => { setModal(null); setRefreshKey(k => k + 1); };
+        const closePlanModal = () => { closeModal(); showToast('✅ Plano atualizado!'); };
 
         if (!onboarded) return <TelaOnboarding onComplete={() => setOnboarded(true)}/>;
 
@@ -5348,7 +5370,7 @@
         if (modal === 'modoRegata')  return <TelaModuRegata   onClose={closeModal}/>;
         if (modal === 'conexoes')    return <TelaConexoes     onBack={closeModal}/>;
         if (modal === 'planos')      return <TelaPlanos       onBack={closeModal}/>;
-        if (modal === 'avaliacao')   return <TelaAvaliacao    onClose={closeModal}/>;
+        if (modal === 'avaliacao')   return <TelaAvaliacao    onClose={closePlanModal}/>;
         if (modal === 'coach')       return <TelaCoach        onClose={closeModal}/>;
         if (modal === 'historico')   return <TelaHistorico    onClose={closeModal}/>;
         if (modal === 'biometria')   return <TelaBiometria    onClose={closeModal}/>;
@@ -5374,6 +5396,11 @@
 
         return (
             <div className="app">
+                {toast && (
+                    <div style={{position:'fixed',top:'max(20px,env(safe-area-inset-top,20px))',left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'#18191f',color:'#f5f0e8',padding:'12px 22px',borderRadius:50,fontSize:13,fontWeight:700,letterSpacing:0.3,boxShadow:'0 4px 20px rgba(0,0,0,0.3)',pointerEvents:'none',whiteSpace:'nowrap'}}>
+                        {toast}
+                    </div>
+                )}
                 <div className="screen">
                     {renderTab()}
                 </div>
