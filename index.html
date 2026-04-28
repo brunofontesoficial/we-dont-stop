@@ -901,6 +901,30 @@
             return updated;
         } catch { return getStreak(); }
     }
+    function getNotifEnabled() { return localStorage.getItem('notif_streak') === '1'; }
+    function saveNotifEnabled(v) { localStorage.setItem('notif_streak', v ? '1' : '0'); }
+    async function requestNotifPermission() {
+        if (!('Notification' in window)) return false;
+        if (Notification.permission === 'granted') return true;
+        const perm = await Notification.requestPermission();
+        return perm === 'granted';
+    }
+    function checkStreakNotif() {
+        if (!getNotifEnabled()) return;
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        const today = new Date().toLocaleDateString('sv');
+        const trainedToday = getHistory().some(s => s.date === today);
+        if (trainedToday) return;
+        if (new Date().getHours() < 18) return;
+        const key = 'notif_last_' + today;
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, '1');
+        const streak = getStreak();
+        const msg = streak.count > 0
+            ? `${streak.count} dias de streak em risco! Ainda dá tempo de treinar hoje.`
+            : 'Sem treino hoje ainda. Não quebre a corrente!';
+        new Notification("We Don't Stop \uD83D\uDD25", { body: msg, icon: '/we-dont-stop/icons/icon-192.png', tag: 'streak-reminder', silent: false });
+    }
     /* ── end helpers ── */
 
     // ── Wind utilities ───────────────────────────────────────────────────────
@@ -2770,6 +2794,18 @@
     function TelaPerfil({ setModal, sailingMode, setSailingMode }) {
         const [profile, setProfile] = React.useState(getProfile);
         const [editing, setEditing] = React.useState(false);
+        const [notifEnabled, setNotifEnabled] = React.useState(getNotifEnabled);
+        async function toggleNotif() {
+            if (!notifEnabled) {
+                const granted = await requestNotifPermission();
+                if (!granted) { alert('Permita notificações nas configurações do dispositivo.'); return; }
+                saveNotifEnabled(true);
+                setNotifEnabled(true);
+            } else {
+                saveNotifEnabled(false);
+                setNotifEnabled(false);
+            }
+        }
         const [draft, setDraft] = React.useState(null);
         const [events, setEvents] = React.useState(getEvents);
         const [eventModal, setEventModal] = React.useState(null); // null | 'add' | event obj
@@ -2899,6 +2935,17 @@
                             <div className="chevron">›</div>
                         </div>
                     ))}
+
+                    {/* NOTIFICAÇÕES toggle */}
+                    <div className="perf-link" onClick={toggleNotif}>
+                        <div className="perf-link-body">
+                            <div className="perf-link-title">Lembrete de treino</div>
+                            <div className="perf-link-sub">{notifEnabled ? 'Ativo · avisa às 18h se não treinou' : 'Desativado · toque para ativar'}</div>
+                        </div>
+                        <div style={{width:40,height:24,borderRadius:12,background:notifEnabled?'#3db87a':'rgba(24,25,31,0.15)',position:'relative',flexShrink:0,transition:'background 0.2s'}}>
+                            <div style={{position:'absolute',top:3,left:notifEnabled?18:3,width:18,height:18,borderRadius:'50%',background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left 0.2s'}}/>
+                        </div>
+                    </div>
 
                     {/* CALENDÁRIO DE EVENTOS */}
                     <div style={{background:'#fff',borderRadius:16,padding:'16px 18px',border:'1px solid rgba(24,25,31,0.07)'}}>
@@ -5011,6 +5058,10 @@
             </div>
         );
     }
+
+    // Check streak notification when user returns to the app
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkStreakNotif(); });
+    setTimeout(checkStreakNotif, 3000); // also check 3s after first load
 
     ReactDOM.render(<App/>, document.getElementById('root'));
 </script>
