@@ -1261,7 +1261,7 @@
         const aval = getAvaliacao();
         const sessionTier = (() => {
             if (!aval?.scores || isRest) return null;
-            const scoreMap = { endurance:'endurance', hiking:'hiking', trapezio:'forca', forca:'forca', core:'core', ativo:'mobilidade' };
+            const scoreMap = { endurance:'endurance', hiking:'hiking', trapezio:'forca', forca:'forca', core:'core', ativo:'mobilidade', forca_day:'forca', endurance_day:'endurance', sailing_endurance:'endurance' };
             const key = scoreMap[todayDay.type];
             const score = key ? (aval.scores[key] ?? 50) : 50;
             return score < 35 ? 'L' : score < 65 ? 'M' : 'H';
@@ -4801,13 +4801,16 @@
     const PLAN_DAYS = ['SEG','TER','QUA','QUI','SEX','SAB','DOM'];
     const TODAY_IDX = (new Date().getDay() + 6) % 7;
     const PLAN_BADGE = {
-        hiking:    {label:'HIKING',     bg:'rgba(74,143,217,0.12)',  c:'#4a8fd9'},
-        trapezio:  {label:'TRAPÉZIO',   bg:'rgba(74,143,217,0.12)',  c:'#4a8fd9'},
-        forca:     {label:'FORÇA',      bg:'rgba(232,122,69,0.12)',  c:'#e87a45'},
-        endurance: {label:'ENDURANCE',  bg:'rgba(61,184,122,0.12)',  c:'#2d6b4f'},
-        core:      {label:'CORE',       bg:'rgba(155,125,212,0.12)', c:'#9b7dd4'},
-        ativo:     {label:'ATIVO',      bg:'rgba(61,184,122,0.08)',  c:'#3db87a'},
-        descanso:  {label:'DESCANSO',   bg:'rgba(24,25,31,0.06)',    c:'rgba(24,25,31,0.35)'},
+        hiking:           {label:'HIKING',          bg:'rgba(74,143,217,0.12)',  c:'#4a8fd9'},
+        trapezio:         {label:'TRAPÉZIO',        bg:'rgba(74,143,217,0.12)',  c:'#4a8fd9'},
+        forca:            {label:'FORÇA',           bg:'rgba(232,122,69,0.12)',  c:'#e87a45'},
+        endurance:        {label:'ENDURANCE',       bg:'rgba(61,184,122,0.12)',  c:'#2d6b4f'},
+        core:             {label:'CORE',            bg:'rgba(155,125,212,0.12)', c:'#9b7dd4'},
+        forca_day:        {label:'FORÇA',           bg:'rgba(232,122,69,0.12)',  c:'#e87a45'},
+        endurance_day:    {label:'ENDURANCE',       bg:'rgba(61,184,122,0.12)',  c:'#2d6b4f'},
+        sailing_endurance:{label:'ENDURANCE VELA',  bg:'rgba(74,143,217,0.12)', c:'#4a8fd9'},
+        ativo:            {label:'ATIVO',           bg:'rgba(61,184,122,0.08)',  c:'#3db87a'},
+        descanso:         {label:'DESCANSO',        bg:'rgba(24,25,31,0.06)',    c:'rgba(24,25,31,0.35)'},
     };
     function getPlanWeeks(aval) {
         const scores     = aval?.scores || null;
@@ -5104,7 +5107,7 @@
 
     function getSessionSections(type, aval, cardioMode) {
         const scores = aval ? aval.scores : null;
-        const scoreMap = { endurance:'endurance', hiking:'hiking', trapezio:'forca', forca:'forca', core:'core', ativo:'mobilidade' };
+        const scoreMap = { endurance:'endurance', hiking:'hiking', trapezio:'forca', forca:'forca', core:'core', ativo:'mobilidade', forca_day:'forca', endurance_day:'endurance', sailing_endurance:'endurance' };
         const key = scoreMap[type];
         const score = scores && key ? (scores[key] ?? 50) : 50;
         const tier = score < 35 ? 'L' : score < 65 ? 'M' : 'H';
