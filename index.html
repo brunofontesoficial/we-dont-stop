@@ -2367,7 +2367,8 @@
                                             </button>
                                         </div>
                                         <div style={{fontFamily:'var(--font-display)',fontSize:26,fontWeight:600,color:'#f5f0e8',marginBottom:4,lineHeight:1.2}}>{currentEx.name}</div>
-                                        <div style={{fontSize:13,color:'rgba(245,240,232,0.48)',marginBottom:16}}>{currentEx.detail}</div>
+                                        <div style={{fontSize:13,color:'rgba(245,240,232,0.48)',marginBottom: getTip(currentEx.name) ? 6 : 16}}>{currentEx.detail}</div>
+                                        {getTip(currentEx.name) && <div style={{fontSize:11,color:'rgba(245,240,232,0.28)',marginBottom:16,lineHeight:1.4}}>{getTip(currentEx.name)}</div>}
                                         {currentEx.rest && currentEx.rest !== '—' && (
                                             <div style={{fontSize:10,color:'rgba(245,240,232,0.22)',marginBottom:14}}>descanso sugerido: {currentEx.rest}</div>
                                         )}
@@ -4844,6 +4845,58 @@
         ],
     };
 
+    const EXERCISE_TIPS = {
+        'Hollow hold':                'Lombar colada ao chão, braços e pernas elevados sem tocar',
+        'Dead bug':                   'Coluna neutra — extensão de braço e perna opostos simultaneamente',
+        'Prancha frontal':            'Corpo em linha reta, cotovelos sob os ombros, glúteos contraídos',
+        'Prancha lateral':            'Quadril elevado, coluna alinhada, olhar para frente',
+        'Mountain climbers':          'Quadril neutro, joelhos alternados em direção ao peito em ritmo rápido',
+        'Agachamento':                'Joelhos sobre os pés, quadril abaixo dos joelhos, costas retas',
+        'Agachamento + remada':       'Desça até 90°, puxe os cotovelos para trás ao subir',
+        'Push-up':                    'Corpo em linha reta, desça até o peito quase tocar o chão',
+        'Push-up (joelho)':           'Joelhos no chão, corpo em linha reta do joelho à cabeça',
+        'Romanian deadlift':          'Joelhos levemente dobrados, barra rente ao corpo, quadril para trás',
+        'Inverted row':               'Peito ao bastão, corpo em linha reta, contraia omoplatas no topo',
+        'Inverted row (mesa)':        'Peito à borda da mesa, corpo rígido, puxe as escápulas',
+        'Barra / inverted row':       'Puxe até o queixo acima da barra, controle a descida',
+        'Wall sit':                   'Costas na parede, joelhos a 90°, sem usar as mãos',
+        'Single-leg stance':          'Peso em um pé, core ativado, olhar fixo em ponto à frente',
+        'Step-up':                    'Passo completo, quadril nivelado, desça com controle',
+        'Agachamento jump':           'Agache até 90°, salte com força, aterrisse suavemente',
+        'Glute bridge':               'Pés no chão, quadril elevado, aperte os glúteos no topo',
+        'Polichinelo':                'Saltos leves, braços coordenados com as pernas',
+        'Cat-cow':                    'Inspire arqueando (cat), expire abrindo (cow) — fluidez máxima',
+        'Cat-cow dinâmico':           'Mesmo padrão do cat-cow em ritmo contínuo sem pausa',
+        'Torção torácica':            'Joelhos juntos, deite de lado e deixe o ombro tocar o chão',
+        'Abertura de quadril':        'Posição de afundo fundo, quadril em direção ao chão',
+        'Pigeon pose':                'Perna dianteira dobrada à frente, perna traseira estendida',
+        '90/90 de quadril':           'Ambos joelhos a 90°, sente ereto e incline sobre a perna dianteira',
+        'Foam roll · pernas':         'Role lentamente sobre quadríceps e panturrilhas',
+        'Foam roll · costas':         'Mova da zona lombar até os ombros, pause nos pontos tensos',
+        'Foam roll · ombros':         'Role sobre deltoide e parte superior das costas',
+        'Foam roll · IT band':        'Posição lateral, role da borda do joelho ao quadril',
+        'Foam roll · coluna':         'Coluna sobre o rolo, mãos atrás da cabeça, respire fundo',
+        'Hiking bench isométrico':    'Joelhos a 90°, tronco inclinado — posição real de hiking em banco',
+        'Corrida Z2':                 'Ritmo conversacional — consiga falar frases completas',
+        'Bike Z2':                    'Cadência de 80–90 rpm · ritmo confortável e sustentável',
+        'Ergômetro Z2':               'Ritmo controlado — respiração rítmica, postura ereta',
+        'Burpees':                    'Sequência: agacha → prancha → flexão → salta com palmas acima',
+        'Ab wheel rollout':           'Joelhos no chão, core contraído, avance até sentir tensão abdominal',
+        'Farmer carry':               'Peso nas mãos, ombros para trás, caminhe com passadas firmes',
+        'Russian twist':              'Pés levantados, tronco a 45°, gire com controle lateral',
+        'Band pull-apart':            'Braços estendidos, puxe a faixa até o peito, controle a volta',
+        'Rotação externa de ombro':   'Cotovelo a 90° junto ao corpo, gire o antebraço para fora',
+        'Respiração diafragmática':   'Mão na barriga: inspire enchendo o abdômen, expire esvaziando',
+        'Leg swing frontal':          'Segure apoio, balance a perna para frente e para trás com amplitude',
+        'Leg swing multi-plano':      'Alternância de leg swing frontal e lateral com amplitude crescente',
+        'Mobilidade de joelho':       'Pé fixo, círculos lentos com o joelho — ativa o líquido sinovial',
+        'Mobilidade de ombro':        'Círculos amplos e lentos de braço — aquece toda a cintura escapular',
+    };
+
+    function getTip(name) {
+        return EXERCISE_TIPS[name] || null;
+    }
+
     function getSessionSections(type, aval, cardioMode) {
         const scores = aval ? aval.scores : null;
         const scoreMap = { endurance:'endurance', hiking:'hiking', trapezio:'forca', forca:'forca', core:'core', ativo:'mobilidade' };
@@ -5337,6 +5390,7 @@
                                 <div className="sd-exer-info">
                                     <div className="sd-exer-name">{ex.name}</div>
                                     <div className="sd-exer-detail">{ex.detail}</div>
+                                    {getTip(ex.name) && <div style={{fontSize:10, color:'rgba(24,25,31,0.38)', marginTop:3, lineHeight:1.35}}>{getTip(ex.name)}</div>}
                                 </div>
                                 {ex.rest && <div className="sd-exer-rest">↺ {ex.rest}</div>}
                             </div>
