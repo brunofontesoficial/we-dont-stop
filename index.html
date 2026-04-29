@@ -5096,14 +5096,17 @@
             {name:'Hiking bench sprint', detail:`${hikingSets} × 30s`, rest:'45s'},
         ] : [];
 
-        const weekIdx = Math.floor(Date.now() / (7 * 24 * 3600 * 1000)) % 4;
         const TABATA_PAIRS = [
-            ['Snow angel',  'Plank elbows'],
-            ['Ab wheel',    'V-UP'],
-            ['Hollow rock', 'V-UP'],
-            ['Tuck-up',     'Hollow hold'],
+            ['Snow angel',      'Plank elbows'],
+            ['Ab wheel',        'V-UP'],
+            ['Russian twist',   'Dead bug'],
+            ['Plank tap ombro', 'Mountain climbers'],
+            ['Hollow rock',     'Tuck-up'],
+            ['Bicycle crunch',  'Leg raise'],
+            ['Prancha lateral', 'Hip thrust'],
         ];
-        const [tabataA, tabataB] = TABATA_PAIRS[weekIdx];
+        const dayIdx = Math.floor(Date.now() / (24 * 3600 * 1000)) % TABATA_PAIRS.length;
+        const [tabataA, tabataB] = TABATA_PAIRS[dayIdx];
         const ESD = {
             L: { label:'SHORT',     detail:'4 × 3 min (RPE 7) + 2 min (RPE 2)'  },
             M: { label:'THRESHOLD', detail:'6 × 3 min (RPE 7) + 90s (RPE 2)'    },
