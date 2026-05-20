@@ -5783,8 +5783,26 @@
                 return { ...item, name:sub.name, detail:sub.detail ?? item.detail, rest:sub.rest ?? item.rest };
             });
         }
+        function applyTargets(secs) {
+            return secs.map(sec => ({
+                ...sec,
+                items: sec.items.map(item => {
+                    let detail = item.detail;
+                    if (pushTarget && (item.name === 'Push-up' || item.name === 'Push-up (joelho)')) {
+                        detail = detail.replace(/\d+ rep$/, `${pushTarget} rep`);
+                    } else if (plankTarget && (item.name === 'Prancha frontal' || item.name === 'Hollow hold')) {
+                        detail = detail.replace(/\d+s$/, `${plankTarget}s`);
+                    } else if (hikingTarget && (item.name === 'Hiking bench isométrico' || item.name === 'Hiking isométrico centro' || item.name === 'Hiking bench lastrado')) {
+                        detail = detail.replace('máximo', `${hikingTarget}s`);
+                    } else if (endurancePace && (item.name === 'Corrida Z2' || item.name === 'Bike Z2' || item.name === 'Ergômetro Z2')) {
+                        if (!detail.includes('~')) detail += ` · ~${endurancePace}`;
+                    }
+                    return { ...item, detail };
+                })
+            }));
+        }
         const raw = (S[type] && S[type][tier]) || SESSION_TEMPLATES[type] || [];
-        const sections = raw.map(sec => ({ ...sec, items: equipFilter(sec.items) }));
+        const sections = applyTargets(raw).map(sec => ({ ...sec, items: equipFilter(sec.items) }));
         return [...sections, RECOVERY_BLOCK];
     }
 
