@@ -553,6 +553,10 @@
         .plano-day-name { font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 2px; }
         .plano-day-sub { font-size: 11px; color: rgba(24,25,31,0.45); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .plano-day-dur { font-size: 11px; color: rgba(24,25,31,0.4); font-weight: 600; flex-shrink: 0; }
+        .plano-focus-banner { margin: 0 20px 12px; background: #fff; border: 1px solid rgba(24,25,31,0.08); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+        .plano-focus-ol { font-size: 9px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: var(--orange); margin-bottom: 3px; }
+        .plano-focus-name { font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--text-dark); line-height: 1.1; }
+        .plano-focus-sub { font-size: 11px; color: var(--muted-dark); margin-top: 2px; }
         .sd-wrap { background: var(--card-cream); min-height: 100vh; position: fixed; inset: 0; z-index: 150; overflow-y: auto; padding-bottom: 100px; -webkit-overflow-scrolling: touch; }
         .sd-wrap::-webkit-scrollbar { display: none; }
         .sd-topbar { display: flex; align-items: center; gap: 14px; padding: 20px 20px 0; }
@@ -5920,6 +5924,19 @@
                     <div className="plano-summ-title">{w.name}</div>
                     <div className="plano-summ-desc">{w.desc}</div>
                 </div>
+                {w.weakPillar && (
+                    <div className="plano-focus-banner">
+                        <div style={{flex:1}}>
+                            <div className="plano-focus-ol">FOCO</div>
+                            <div className="plano-focus-name">{w.weakPillar}</div>
+                            <div className="plano-focus-sub">Reforço incluído em cada sessão</div>
+                        </div>
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <circle cx="14" cy="14" r="13" stroke="var(--orange)" strokeWidth="1.5" opacity="0.3"/>
+                            <path d="M14 8v6l3.5 3.5" stroke="var(--orange)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                    </div>
+                )}
                 <div className="plano-days">
                     {w.days.map((d, i) => {
                         const b = PLAN_BADGE[d.type];
