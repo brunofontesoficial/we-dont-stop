@@ -805,6 +805,76 @@
             return JSON.parse(localStorage.getItem('regata_avaliacao') || 'null');
         } catch { return null; }
     }
+    function getPersonalizedTargets(aval) {
+        if (!aval) return { pushTarget:null, plankTarget:null, hikingTarget:null, endurancePace:null, weakPillar:null };
+
+        // Push-up: 60% of max, rounded to nearest 5, min 3
+        const pushTarget = aval.pushReps != null
+            ? Math.max(3, Math.round(aval.pushReps * 0.60 / 5) * 5)
+            : null;
+
+        // Plank: 65% of max, rounded to nearest 5, min 10
+        const plankTarget = aval.plankSecs != null
+            ? Math.max(10, Math.round(aval.plankSecs * 0.65 / 5) * 5)
+            : null;
+
+        // Hiking bench: 70% of max, rounded to nearest 5, min 10
+        const hikingTarget = aval.hikingSecs != null
+            ? Math.max(10, Math.round(aval.hikingSecs * 0.70 / 5) * 5)
+            : null;
+
+        // Endurance pace by protocol
+        let endurancePace = null;
+        if (aval.endType && aval.endDist != null) {
+            if (aval.endType === 'cooper') {
+                const dist = parseFloat(aval.endDist) || 0;
+                if (dist > 0) {
+                    const secPerKm = (12 * 60 / dist) * 1000 * 1.30;
+                    const m = Math.floor(secPerKm / 60);
+                    const s = Math.round(secPerKm % 60).toString().padStart(2, '0');
+                    endurancePace = `${m}:${s}/km`;
+                }
+            } else if (aval.endType === 'remo') {
+                const parts = String(aval.endDist).split(':');
+                if (parts.length === 2) {
+                    const totalSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+                    const per500 = (totalSec / 4) * 1.15;
+                    const m = Math.floor(per500 / 60);
+                    const s = Math.round(per500 % 60).toString().padStart(2, '0');
+                    endurancePace = `${m}:${s}/500m`;
+                }
+            } else if (aval.endType === 'bike') {
+                const ftp = parseFloat(aval.endDist) || 0;
+                if (ftp > 0) endurancePace = `${(ftp * 0.65).toFixed(1)} w/kg`;
+            } else if (aval.endType === 'burpees') {
+                const parts = String(aval.endDist).split(':');
+                if (parts.length === 2) {
+                    const totalMin = parseInt(parts[0]) + parseInt(parts[1]) / 60;
+                    if (totalMin > 0) endurancePace = `${Math.round((100 / totalMin) * 0.65)} burpees/min`;
+                }
+            }
+        }
+
+        // Weak pillar: lowest score, sailing athletes include hiking
+        let weakPillar = null;
+        if (aval.scores) {
+            const isVelejador = aval.esporte === 'velejador';
+            const pillars = [
+                ...(isVelejador ? [{k:'hiking', n:'Hiking Bench'}] : []),
+                {k:'core',       n:'Core'},
+                {k:'forca',      n:'Força'},
+                {k:'endurance',  n:'Endurance'},
+                {k:'mobilidade', n:'Mobilidade'},
+            ];
+            let minScore = Infinity;
+            for (const p of pillars) {
+                const sc = aval.scores[p.k] ?? Infinity;
+                if (sc < minScore) { minScore = sc; weakPillar = p.n; }
+            }
+        }
+
+        return { pushTarget, plankTarget, hikingTarget, endurancePace, weakPillar };
+    }
     function getAvaliacaoHistory() {
         try {
             return JSON.parse(localStorage.getItem('regata_avaliacao_history') || '[]');
