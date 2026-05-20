@@ -2393,7 +2393,7 @@
     function TelaSessionAtiva({ session, onClose }) {
         const sections = React.useMemo(() => {
             if (!session) return [];
-            return getSessionSections(session.day.type, getAvaliacao(), session.day.cardioMode || getCardioMode());
+            return getSessionSections(session.day.type, getAvaliacao(), session.day.cardioMode || getCardioMode(), session.weekIdx);
         }, [session]);
 
         const allExercises = React.useMemo(() =>
@@ -5175,13 +5175,16 @@
         return EXERCISE_TIPS[name] || null;
     }
 
-    function getSessionSections(type, aval, cardioMode) {
+    function getSessionSections(type, aval, cardioMode, weekIdx = getWeekIdx()) {
         const scores = aval ? aval.scores : null;
         const scoreMap = { endurance:'endurance', hiking:'hiking', trapezio:'forca', forca:'forca', core:'core', ativo:'mobilidade', forca_day:'forca', endurance_day:'endurance', sailing_endurance:'endurance' };
         const key = scoreMap[type];
         const score = scores && key ? (scores[key] ?? 50) : 50;
-        const tier = score < 35 ? 'L' : score < 65 ? 'M' : 'H';
-        const { pushTarget, plankTarget, hikingTarget, endurancePace } = getPersonalizedTargets(aval);
+        let tier = score < 35 ? 'L' : score < 65 ? 'M' : 'H';
+        const { pushTarget, plankTarget, hikingTarget, endurancePace, weakPillar } = getPersonalizedTargets(aval);
+        // Feature 2C: boost tier para pilar fraco nas semanas 1–2
+        const PILLAR_SESSION = { 'Core':'forca_day', 'Força':'forca_day', 'Hiking Bench':'sailing_endurance', 'Endurance':'endurance_day' };
+        if (weakPillar && weekIdx <= 2 && PILLAR_SESSION[weakPillar] === type && tier === 'L') tier = 'M';
         const cPace = endurancePace ? ` · ~${endurancePace}` : '';
         const mode = cardioMode || 'corrida';
         const cardioExercise = mode === 'bike' ? 'Bike Z2' : mode === 'remo' ? 'Ergômetro Z2' : 'Corrida Z2';
@@ -5811,18 +5814,37 @@
             });
         }
         function applyTargets(secs) {
+            const CORE_ITEMS   = ['Prancha frontal','Hollow hold','Mountain climbers','Prancha lateral','Hanging knee raise'];
+            const FORCA_ITEMS  = ['Push-up','Push-up (joelho)'];
+            const HIKING_ITEMS = ['Hiking bench isométrico','Hiking isométrico centro','Hiking bench lastrado','Wall sit'];
+            const CARDIO_ITEMS = ['Corrida Z2','Bike Z2','Ergômetro Z2'];
             return secs.map(sec => ({
                 ...sec,
                 items: sec.items.map(item => {
                     let detail = item.detail;
-                    if (pushTarget && (item.name === 'Push-up' || item.name === 'Push-up (joelho)')) {
+                    // Cargas personalizadas dos testes
+                    if (pushTarget && FORCA_ITEMS.includes(item.name)) {
                         detail = detail.replace(/\d+ rep$/, `${pushTarget} rep`);
                     } else if (plankTarget && (item.name === 'Prancha frontal' || item.name === 'Hollow hold')) {
                         detail = detail.replace(/\d+s$/, `${plankTarget}s`);
-                    } else if (hikingTarget && (item.name === 'Hiking bench isométrico' || item.name === 'Hiking isométrico centro' || item.name === 'Hiking bench lastrado')) {
+                    } else if (hikingTarget && HIKING_ITEMS.slice(0,3).includes(item.name)) {
                         detail = detail.replace('máximo', `${hikingTarget}s`);
-                    } else if (endurancePace && (item.name === 'Corrida Z2' || item.name === 'Bike Z2' || item.name === 'Ergômetro Z2')) {
+                    }
+                    // Pace de endurance
+                    if (endurancePace && CARDIO_ITEMS.includes(item.name)) {
                         if (!detail.includes('~')) detail += ` · ~${endurancePace}`;
+                    }
+                    // Feature 2A: volume boost pelo pilar fraco
+                    if (weakPillar) {
+                        if (weakPillar === 'Core' && CORE_ITEMS.includes(item.name)) {
+                            detail = detail.replace(/^(\d+) ×/, (_, n) => `${+n + 1} ×`);
+                        } else if (weakPillar === 'Força' && FORCA_ITEMS.includes(item.name)) {
+                            detail = detail.replace(/^(\d+) ×/, (_, n) => `${+n + 1} ×`);
+                        } else if (weakPillar === 'Hiking Bench' && HIKING_ITEMS.includes(item.name)) {
+                            detail = detail.replace(/^(\d+) ×/, (_, n) => `${+n + 1} ×`);
+                        } else if (weakPillar === 'Endurance' && CARDIO_ITEMS.includes(item.name)) {
+                            detail = detail.replace(/^(\d+) min/, (_, n) => `${+n + 5} min`);
+                        }
                     }
                     return { ...item, detail };
                 })
@@ -5837,7 +5859,7 @@
         const b = (PLAN_BADGE[session.type] || PLAN_BADGE['forca']);
         const [cardioMode, setCardioModeState] = useState(() => session.cardioMode || getCardioMode());
         function pickCardio(m) { setCardioModeState(m); saveCardioMode(m); }
-        const sections = getSessionSections(session.type, getAvaliacao(), cardioMode);
+        const sections = getSessionSections(session.type, getAvaliacao(), cardioMode, weekIdx);
         return (
             <div className="sd-wrap">
                 <div className="sd-topbar">
