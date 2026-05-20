@@ -5909,6 +5909,15 @@
         const [week, setWeek] = useState(getWeekIdx);
         const [selected, setSelected] = useState(null);
         const w = PLAN_WEEKS.find(x => x.id === week);
+        const history = React.useMemo(() => getHistory(), []);
+        const doneDates = React.useMemo(() => new Set(history.map(e => e.date)), [history]);
+        const weekDates = React.useMemo(() => getWeekDates(week), [week]);
+        const currentWeekIdx = getWeekIdx();
+        const currentWeekDates = React.useMemo(() => getWeekDates(currentWeekIdx), []);
+        const currentWeekPlan = PLAN_WEEKS[currentWeekIdx - 1] || PLAN_WEEKS[0];
+        const trainDaysCount = currentWeekPlan.days.filter(d => d.type !== 'descanso' && d.type !== 'ativo').length;
+        const doneSessions = currentWeekDates.filter(date => history.some(e => e.date === date && !e.isMinimo)).length;
+        const progressPct = trainDaysCount > 0 ? Math.round((doneSessions / trainDaysCount) * 100) : 0;
 
         if (selected) {
             return <TelaSessaoDetalhe
@@ -5934,6 +5943,14 @@
                         </svg>
                     </div>
                 </div>
+                {trainDaysCount > 0 && (
+                    <div className="plano-progress-wrap">
+                        <div className="plano-progress-label">ESTA SEMANA · {doneSessions} de {trainDaysCount} sessões</div>
+                        <div className="plano-progress-track">
+                            <div className="plano-progress-bar" style={{width:`${progressPct}%`}}/>
+                        </div>
+                    </div>
+                )}
                 <div className="plano-week-scroll">
                     {PLAN_WEEKS.map(pw => (
                         <button key={pw.id} className={`plano-week-tab${week===pw.id?' wt-on':''}`}
@@ -5979,7 +5996,10 @@
                                     <div className="plano-day-name" style={isRest?{color:'rgba(24,25,31,0.35)'}:{}}>{d.name}</div>
                                     {d.sub && <div className="plano-day-sub">{d.sub}</div>}
                                 </div>
-                                {d.dur && <div className="plano-day-dur">{d.dur}</div>}
+                                {doneDates.has(weekDates[i])
+                                    ? <div className="plano-day-check">✓</div>
+                                    : d.dur && <div className="plano-day-dur">{d.dur}</div>
+                                }
                             </div>
                         );
                     })}
