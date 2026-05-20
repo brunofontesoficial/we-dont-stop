@@ -807,20 +807,24 @@
     }
     function getPersonalizedTargets(aval) {
         if (!aval) return { pushTarget:null, plankTarget:null, hikingTarget:null, endurancePace:null, weakPillar:null };
+        const toNum = v => (v != null && Number.isFinite(+v)) ? +v : null;
 
         // Push-up: 60% of max, rounded to nearest 5, min 3
-        const pushTarget = aval.pushReps != null
-            ? Math.max(3, Math.round(aval.pushReps * 0.60 / 5) * 5)
+        const pushReps = toNum(aval.pushReps);
+        const pushTarget = pushReps !== null
+            ? Math.max(3, Math.round(pushReps * 0.60 / 5) * 5)
             : null;
 
         // Plank: 65% of max, rounded to nearest 5, min 10
-        const plankTarget = aval.plankSecs != null
-            ? Math.max(10, Math.round(aval.plankSecs * 0.65 / 5) * 5)
+        const plankSecs = toNum(aval.plankSecs);
+        const plankTarget = plankSecs !== null
+            ? Math.max(10, Math.round(plankSecs * 0.65 / 5) * 5)
             : null;
 
         // Hiking bench: 70% of max, rounded to nearest 5, min 10
-        const hikingTarget = aval.hikingSecs != null
-            ? Math.max(10, Math.round(aval.hikingSecs * 0.70 / 5) * 5)
+        const hikingSecs = toNum(aval.hikingSecs);
+        const hikingTarget = hikingSecs !== null
+            ? Math.max(10, Math.round(hikingSecs * 0.70 / 5) * 5)
             : null;
 
         // Endurance pace by protocol
@@ -837,11 +841,13 @@
             } else if (aval.endType === 'remo') {
                 const parts = String(aval.endDist).split(':');
                 if (parts.length === 2) {
-                    const totalSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-                    const per500 = (totalSec / 4) * 1.15;
-                    const m = Math.floor(per500 / 60);
-                    const s = Math.round(per500 % 60).toString().padStart(2, '0');
-                    endurancePace = `${m}:${s}/500m`;
+                    const totalSec = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+                    if (totalSec > 0) {
+                        const per500 = (totalSec / 4) * 1.15;
+                        const m = Math.floor(per500 / 60);
+                        const s = Math.round(per500 % 60).toString().padStart(2, '0');
+                        endurancePace = `${m}:${s}/500m`;
+                    }
                 }
             } else if (aval.endType === 'bike') {
                 const ftp = parseFloat(aval.endDist) || 0;
@@ -849,7 +855,7 @@
             } else if (aval.endType === 'burpees') {
                 const parts = String(aval.endDist).split(':');
                 if (parts.length === 2) {
-                    const totalMin = parseInt(parts[0]) + parseInt(parts[1]) / 60;
+                    const totalMin = parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60;
                     if (totalMin > 0) endurancePace = `${Math.round((100 / totalMin) * 0.65)} burpees/min`;
                 }
             }
@@ -859,6 +865,7 @@
         let weakPillar = null;
         if (aval.scores) {
             const isVelejador = aval.esporte === 'velejador';
+            // ties favour first listed pillar (hiking prioritised for velejadores)
             const pillars = [
                 ...(isVelejador ? [{k:'hiking', n:'Hiking Bench'}] : []),
                 {k:'core',       n:'Core'},
