@@ -965,6 +965,18 @@
         const diffDays = Math.floor((Date.now() - start.getTime()) / 86400000);
         return Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), 4);
     }
+    function getWeekDates(weekId) {
+        const raw = localStorage.getItem('regata_plan_start');
+        const planStart = raw ? new Date(raw) : new Date();
+        const planDow = (planStart.getDay() + 6) % 7; // 0=Seg…6=Dom
+        const monday = new Date(planStart);
+        monday.setDate(planStart.getDate() - planDow + (weekId - 1) * 7);
+        return Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(monday);
+            d.setDate(monday.getDate() + i);
+            return d.toLocaleDateString('sv'); // YYYY-MM-DD
+        });
+    }
     function getHistory() {
         try { return JSON.parse(localStorage.getItem('regata_history') || '[]'); } catch { return []; }
     }
