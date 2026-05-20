@@ -5010,13 +5010,14 @@
             });
         }
 
+        const { weakPillar } = getPersonalizedTargets(aval);
         const META = [
             {id:1, tag:'SEMANA 1 DE 4', name:'Base & padrão', desc:'Volume base · 60–70% · postura e respiração'},
             {id:2, tag:'SEMANA 2 DE 4', name:'Estabilidade',  desc:'Mesma carga · foco total em técnica e qualidade'},
             {id:3, tag:'SEMANA 3 DE 4', name:'Overload leve', desc:'+1 série por exercício · progressão de volume'},
             {id:4, tag:'SEMANA 4 DE 4', name:'Deload',        desc:'Volume reduzido · absorção e prep para o próximo ciclo'},
         ];
-        return META.map((m, wi) => ({ ...m, days: buildWeek(wi) }));
+        return META.map((m, wi) => ({ ...m, days: buildWeek(wi), weakPillar }));
     }
     const PLAN_WEEKS = getPlanWeeks(getAvaliacao());
 
@@ -5153,9 +5154,11 @@
         const key = scoreMap[type];
         const score = scores && key ? (scores[key] ?? 50) : 50;
         const tier = score < 35 ? 'L' : score < 65 ? 'M' : 'H';
+        const { pushTarget, plankTarget, hikingTarget, endurancePace } = getPersonalizedTargets(aval);
+        const cPace = endurancePace ? ` · ~${endurancePace}` : '';
         const mode = cardioMode || 'corrida';
         const cardioExercise = mode === 'bike' ? 'Bike Z2' : mode === 'remo' ? 'Ergômetro Z2' : 'Corrida Z2';
-        const cardioDetail  = { L:'15 min', M:'30 min', H:'35 min' };
+        const cardioDetail  = { L:`15 min${cPace}`, M:`30 min${cPace}`, H:`35 min${cPace}` };
         const intervDetail  = { L:'–',      M:'3 × 2 min', H:'5 × 2 min' };
         const burpeesDetail = { L:'3 × 5 rep', M:'3 × 8 rep', H:'4 × 10 rep' };
 
