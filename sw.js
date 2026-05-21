@@ -1,4 +1,4 @@
-const CACHE = 'we-dont-stop-v3';
+const CACHE = 'we-dont-stop-v4';
 const ASSETS = [
   '/we-dont-stop/',
   '/we-dont-stop/index.html',
